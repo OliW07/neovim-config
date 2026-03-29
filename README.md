@@ -1,6 +1,10 @@
-# Neovim Configuration Guide
+My custom neovim config, 
+_for personal use_
 
-## Directory Structure
+Add new plugins to the appropriate file in `lua/plugins/`:
+Keymaps are in `lua/config/keymaps.lua`: 
+LSP servers are configured in `lua/plugins/lsp.lua`: 
+Install language servers with Mason: `:Mason` 
 
 ```
 lua/
@@ -16,10 +20,7 @@ lua/
 ```
 
 
-Add new plugins to the appropriate file in `lua/plugins/`:
-Keymaps are in `lua/config/keymaps.lua`:
-LSP servers are configured in `lua/plugins/lsp.lua`:
-Install language servers with Mason: `:Mason`
+
 
 ### Leader Key
 
