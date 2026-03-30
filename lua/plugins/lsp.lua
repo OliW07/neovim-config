@@ -116,7 +116,6 @@ return {
         },
         pyright = {},
         ts_ls = {},
-        gopls = {},
         jsonls = {},
         yamlls = {},
         html = {},
@@ -129,22 +128,21 @@ return {
       vim.list_extend(ensure_installed, {
         'stylua',
         'rust_analyzer',
+
         'pyright',
         'typescript-language-server',
-        'gopls',
         'json-lsp',
         'yaml-language-server',
         'html-lsp',
         'css-lsp',
         'bash-language-server',
         'marksman',
-        'ruff',
         'prettier',
-        'gofmt',
-        'goimports',
-        'rustfmt',
       })
-      require('mason-tool-installer').setup { ensure_installed = ensure_installed }
+      require('mason-tool-installer').setup {
+        ensure_installed = ensure_installed,
+        pip_install_args = { '--break-system-packages' },
+      }
 
       require('mason-lspconfig').setup {
         ensure_installed = {},
@@ -202,7 +200,6 @@ return {
         json = { 'prettier' },
         html = { 'prettier' },
         css = { 'prettier' },
-        go = { 'gofmt', 'goimports' },
         rust = { 'rustfmt' },
       },
     },
