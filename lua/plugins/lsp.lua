@@ -16,6 +16,7 @@ return {
       'WhoIsSethDaniel/mason-tool-installer.nvim',
       { 'j-hui/fidget.nvim', opts = {} },
       'saghen/blink.cmp',
+      'nvim-telescope/telescope.nvim',
     },
     config = function()
       vim.api.nvim_create_autocmd('LspAttach', {
@@ -105,10 +106,44 @@ return {
             },
           },
         },
+        rust_analyzer = {
+          settings = {
+            ['rust-analyzer'] = {
+              cargo = { allFeatures = true },
+              check = { command = 'clippy' },
+            },
+          },
+        },
+        pyright = {},
+        ts_ls = {},
+        gopls = {},
+        jsonls = {},
+        yamlls = {},
+        html = {},
+        cssls = {},
+        bashls = {},
+        marksman = {},
       }
 
       local ensure_installed = vim.tbl_keys(servers or {})
-      vim.list_extend(ensure_installed, { 'stylua' })
+      vim.list_extend(ensure_installed, {
+        'stylua',
+        'rust_analyzer',
+        'pyright',
+        'typescript-language-server',
+        'gopls',
+        'json-lsp',
+        'yaml-language-server',
+        'html-lsp',
+        'css-lsp',
+        'bash-language-server',
+        'marksman',
+        'ruff',
+        'prettier',
+        'gofmt',
+        'goimports',
+        'rustfmt',
+      })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
       require('mason-lspconfig').setup {
@@ -161,6 +196,14 @@ return {
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
+        python = { 'ruff_format', 'ruff_fix' },
+        javascript = { 'prettier' },
+        typescript = { 'prettier' },
+        json = { 'prettier' },
+        html = { 'prettier' },
+        css = { 'prettier' },
+        go = { 'gofmt', 'goimports' },
+        rust = { 'rustfmt' },
       },
     },
   },

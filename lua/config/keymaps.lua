@@ -16,3 +16,10 @@ vim.keymap.set('n', '<leader>mp', '<cmd>MarkdownPreviewToggle<CR>', { desc = 'Ma
 vim.keymap.set('n', '<leader>mz', '<cmd>ZenMode<CR>', { desc = 'Markdown zen mode' })
 vim.keymap.set('n', '<leader>me', '<cmd>Pencil<CR>', { desc = 'Markdown edit mode' })
 vim.keymap.set('n', '<leader>mn', '<cmd>noautocmd MarkdownPreviewStop<CR>', { desc = 'Markdown stop preview' })
+
+local telescope = require('telescope.builtin')
+vim.keymap.set('n', '<leader>ff', telescope.find_files, { desc = 'Find files' })
+vim.keymap.set('n', '<leader>fg', telescope.live_grep, { desc = 'Live grep' })
+vim.keymap.set('n', '<leader>fb', telescope.buffers, { desc = 'Find buffers' })
+vim.keymap.set('n', '<leader>fh', telescope.help_tags, { desc = 'Help tags' })
+vim.keymap.set('n', '<leader>fr', telescope.resume, { desc = 'Resume last search' })
