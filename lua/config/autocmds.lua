@@ -19,3 +19,23 @@ vim.api.nvim_create_autocmd('FileType', {
     vim.opt_local.concealcursor = ''
   end,
 })
+
+local numbergroup = vim.api.nvim_create_augroup('numbertoggle', { clear = true })
+vim.api.nvim_create_autocmd({ 'BufEnter', 'FocusGained', 'InsertLeave', 'WinEnter' }, {
+  pattern = '*',
+  group = numbergroup,
+  callback = function()
+    if vim.opt.number:get() and vim.api.nvim_get_mode().mode ~= 'i' then
+      vim.opt.relativenumber = true
+    end
+  end,
+})
+vim.api.nvim_create_autocmd({ 'BufLeave', 'FocusLost', 'InsertEnter', 'WinLeave' }, {
+  pattern = '*',
+  group = numbergroup,
+  callback = function()
+    if vim.opt.number:get() then
+      vim.opt.relativenumber = false
+    end
+  end,
+})
