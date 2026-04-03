@@ -6,9 +6,9 @@ return {
       'nvim-lua/plenary.nvim',
       {
         'nvim-telescope/telescope-fzf-native.nvim',
-        build = 'make',
+        build = vim.fn.has 'win32' == 1 and 'cmake -S. -Bbuild' or 'make',
         cond = function()
-          return vim.fn.executable 'make' == 1
+          return vim.fn.executable 'cmake' == 1 or vim.fn.executable 'make' == 1
         end,
       },
       { 'nvim-telescope/telescope-ui-select.nvim' },
@@ -16,7 +16,29 @@ return {
     },
     config = function()
       require('telescope').setup {
+        pickers = {
+          find_files = { theme = 'dropdown', previewer = false },
+        },
+        defaults = {
+          file_ignore_patterns = { 'node_modules', '.git', 'dist', 'build', 'target' },
+          mappings = {
+            i = {
+              ['<C-j>'] = 'move_selection_next',
+              ['<C-k>'] = 'move_selection_previous',
+              ['<C-q>'] = function(...)
+                require('telescope.actions').send_to_qflist(...)
+                require('telescope.builtin').quickfix()
+              end,
+            },
+          },
+        },
         extensions = {
+          fzf = {
+            fuzzy = true,
+            override_generic_sorter = true,
+            override_file_sorter = true,
+            case_mode = 'smart_case',
+          },
           ['ui-select'] = { require('telescope.themes').get_dropdown() },
         },
       }
