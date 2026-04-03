@@ -1,5 +1,6 @@
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic quickfix' })
+vim.keymap.set('n', '<leader>Q', vim.diagnostic.setqflist, { desc = 'Open diagnostic qflist' })
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
 
 vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to left window' })
@@ -12,13 +13,46 @@ vim.keymap.set('t', '<C-l>', '<C-\\><C-n><C-w><C-l>', { desc = 'Move focus to ri
 vim.keymap.set('t', '<C-j>', '<C-\\><C-n><C-w><C-j>', { desc = 'Move focus to lower window' })
 vim.keymap.set('t', '<C-k>', '<C-\\><C-n><C-w><C-k>', { desc = 'Move focus to upper window' })
 
+vim.keymap.set('n', '<C-d>', '<C-d>zz', { desc = 'Scroll down and center' })
+vim.keymap.set('n', '<C-u>', '<C-u>zz', { desc = 'Scroll up and center' })
+
+vim.keymap.set('n', 'n', 'nzzzv', { desc = 'Next search result centered' })
+vim.keymap.set('n', 'N', 'Nzzzv', { desc = 'Prev search result centered' })
+
 vim.keymap.set('n', '<leader>mp', '<cmd>MarkdownPreviewToggle<CR>', { desc = 'Markdown preview toggle' })
 vim.keymap.set('n', '<leader>mz', '<cmd>ZenMode<CR>', { desc = 'Markdown zen mode' })
 vim.keymap.set('n', '<leader>me', '<cmd>Pencil<CR>', { desc = 'Markdown edit mode' })
 vim.keymap.set('n', '<leader>mn', '<cmd>noautocmd MarkdownPreviewStop<CR>', { desc = 'Markdown stop preview' })
 
-vim.keymap.set('n', '<leader>ff', function() require('telescope.builtin').find_files() end, { desc = 'Find files' })
-vim.keymap.set('n', '<leader>fg', function() require('telescope.builtin').live_grep() end, { desc = 'Live grep' })
-vim.keymap.set('n', '<leader>fb', function() require('telescope.builtin').buffers() end, { desc = 'Find buffers' })
-vim.keymap.set('n', '<leader>fh', function() require('telescope.builtin').help_tags() end, { desc = 'Help tags' })
-vim.keymap.set('n', '<leader>fr', function() require('telescope.builtin').resume() end, { desc = 'Resume last search' })
+vim.keymap.set({ 'n', 'x' }, '<leader>y', '"+y', { desc = 'Yank to system clipboard' })
+vim.keymap.set({ 'n', 'x' }, '<leader>p', '"+p', { desc = 'Paste from system clipboard' })
+vim.keymap.set('n', '<leader>d', '"_d', { desc = 'Delete without yank' })
+vim.keymap.set('n', '<leader>D', '"_D', { desc = 'Delete line without yank' })
+vim.keymap.set({ 'n', 'x' }, '<leader>c', '"_c', { desc = 'Change without yank' })
+
+vim.keymap.set('n', 'gp', '`[v`]', { desc = 'Select last pasted' })
+
+vim.keymap.set('n', '<leader>w', '<cmd>w<CR>', { desc = 'Save buffer' })
+vim.keymap.set('n', '<leader>b', '<cmd>enew<CR>', { desc = 'New buffer' })
+vim.keymap.set('n', '<leader>bd', '<cmd>bd<CR>', { desc = 'Delete buffer' })
+
+vim.keymap.set('n', '<leader>ff', function()
+  require('telescope.builtin').find_files()
+end, { desc = 'Find files' })
+vim.keymap.set('n', '<leader>fg', function()
+  require('telescope.builtin').live_grep()
+end, { desc = 'Live grep' })
+vim.keymap.set('n', '<leader>fb', function()
+  require('telescope.builtin').buffers()
+end, { desc = 'Find buffers' })
+vim.keymap.set('n', '<leader>fh', function()
+  require('telescope.builtin').help_tags()
+end, { desc = 'Help tags' })
+vim.keymap.set('n', '<leader>fr', function()
+  require('telescope.builtin').resume()
+end, { desc = 'Resume last search' })
+vim.keymap.set('n', '<leader>fc', function()
+  require('telescope.builtin').colorscheme()
+end, { desc = 'Find colorschemes' })
+
+vim.keymap.set('n', '<leader>so', '<cmd>source<CR>', { desc = 'Source init.lua' })
