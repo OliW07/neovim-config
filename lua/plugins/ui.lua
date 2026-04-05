@@ -1,6 +1,7 @@
 return {
   {
     'nvim-telescope/telescope.nvim',
+    commit = '5255aa2',
     event = 'VimEnter',
     dependencies = {
       'nvim-lua/plenary.nvim',
