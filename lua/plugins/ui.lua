@@ -69,6 +69,11 @@ return {
       vim.keymap.set('n', '<leader>sn', function()
         builtin.find_files { cwd = vim.fn.stdpath 'config' }
       end, { desc = 'Search neovim files' })
+      vim.keymap.set('n', '<leader>sp', builtin.git_files, { desc = 'Search git files' })
+      vim.keymap.set('n', '<leader>st', builtin.tags, { desc = 'Search tags' })
+      vim.keymap.set('n', '<leader>sc', builtin.git_commits, { desc = 'Git commits' })
+      vim.keymap.set('n', '<leader>sC', builtin.git_bcommits, { desc = 'Git buffer commits' })
+      vim.keymap.set('n', '<leader>sb', builtin.git_branches, { desc = 'Git branches' })
     end,
   },
 
@@ -91,46 +96,72 @@ return {
         { '<leader>s', group = 'Search' },
         { '<leader>t', group = 'Toggle' },
         { '<leader>h', group = 'Git hunk', mode = { 'n', 'v' } },
+        { '<leader>g', group = 'Git' },
       },
     },
   },
 
   {
     'folke/tokyonight.nvim',
+    lazy = false,
     priority = 1000,
     config = function()
       require('tokyonight').setup {
-        styles = { comments = { italic = false } },
+        style = 'storm',
+        styles = {
+          comments = { italic = false },
+          keywords = { italic = false },
+        },
+        transparent = true,
+        dim_inactive = true,
       }
-      vim.cmd.colorscheme 'tokyonight-night'
+      vim.cmd.colorscheme 'tokyonight'
     end,
   },
 
   {
     'iamcco/markdown-preview.nvim',
-    cmd = { 'MarkdownPreviewToggle', 'MarkdownPreview', 'MarkdownPreviewStop' },
     ft = { 'markdown' },
     build = function()
-      vim.env.PATH = vim.fn.expand('$HOME/.nvm/versions/node/v24.13.0/bin') .. ':' .. vim.env.PATH
       vim.fn['mkdp#util#install']()
+    end,
+    config = function()
+      vim.g.mkdp_port = '9876'
+      vim.g.mkdp_auto_close = 1
     end,
   },
 
   {
-    'nvim-neo-tree/neo-tree.nvim',
-    version = '*',
-    dependencies = {
-      'nvim-lua/plenary.nvim',
-      'nvim-tree/nvim-web-devicons',
-      'MunifTanjim/nui.nvim',
-    },
+    'stevearc/oil.nvim',
     lazy = false,
-    keys = { { '\\', ':Neotree reveal<CR>', desc = 'NeoTree reveal', silent = true } },
+    keys = {
+      { '-', ':Oil<CR>', desc = 'Open parent directory', silent = true },
+    },
     opts = {
-      filesystem = {
-        window = { mappings = { ['\\'] = 'close_window' } },
+      view_options = {
+        show_hidden = true,
+      },
+      keymaps = {
+        ['g?'] = 'actions.show_help',
+        ['<CR>'] = 'actions.select',
+        ['<C-s>'] = { 'actions.select', opts = { split = 'horizontal' } },
+        ['<C-v>'] = { 'actions.select', opts = { split = 'vertical' } },
+        ['<C-t>'] = { 'actions.select', opts = { tab = 'new' } },
+        ['.'] = 'actions.toggle_hidden',
+        ['gc'] = 'actions.close',
+        ['gx'] = 'actions.open_external',
+        ['ge'] = 'actions.rename',
+        ['gE'] = 'actions.rename_basename',
+        ['gy'] = 'actions.yank_entry',
+        ['gp'] = 'actions.preview',
       },
     },
+    config = function()
+      require('oil').setup()
+      vim.defer_fn(function()
+        vim.cmd ':Oil'
+      end, 100)
+    end,
   },
 
   {
@@ -140,6 +171,102 @@ return {
         width = 120,
         options = { number = false, relativenumber = false },
       },
+    },
+  },
+
+  {
+    'nvim-lualine/lualine.nvim',
+    event = 'VeryLazy',
+    dependencies = { 'nvim-tree/nvim-web-devicons' },
+    opts = {
+      options = {
+        theme = 'auto',
+        globalstatus = true,
+        disabled_filetypes = { statusline = { 'dashboard', 'alpha', 'starter' } },
+      },
+      sections = {
+        lualine_a = { 'mode' },
+        lualine_b = { 'branch', 'diff' },
+        lualine_c = {},
+        lualine_x = { 'filetype', 'fileformat', 'encoding' },
+        lualine_y = { 'progress' },
+        lualine_z = { 'location' },
+      },
+      extensions = { 'oil', 'fugitive' },
+    },
+  },
+
+  {
+    'folke/noice.nvim',
+    event = 'VeryLazy',
+    dependencies = {
+      'MunifTanjim/nui.nvim',
+      'rcarriga/nvim-notify',
+    },
+    opts = {
+      routes = {
+        {
+          filter = { event = 'msg_show', kind = { 'echo', 'echomsg' } },
+          view = 'mini',
+        },
+      },
+      lsp = {
+        override = {
+          ['vim.lsp.util.convert_input_to_markdown_lines'] = true,
+          ['vim.lsp.util.stylize_markdown'] = true,
+          ['cmp.entry.get_documentation'] = true,
+        },
+      },
+      presets = {
+        bottom_search = true,
+        command_palette = true,
+        long_message_to_split = true,
+        inc_rename = true,
+      },
+    },
+    keys = {
+      { '<S-Enter>', function() require('noice').redirect(vim.fn.getcmdline()) end, mode = 'c', desc = 'Redirect cmdline' },
+      { '<leader>sn', function() require('noice').cmd 'history' end, desc = 'Noice history' },
+      { '<leader>sa', function() require('noice').cmd 'all' end, desc = 'Noice all' },
+    },
+  },
+
+  {
+    'rcarriga/nvim-notify',
+    opts = {
+      stages = 'fade',
+      timeout = 2000,
+      render = 'default',
+    },
+  },
+
+  {
+    'sindrets/diffview.nvim',
+    cmd = { 'DiffviewOpen', 'DiffviewClose', 'DiffviewFileHistory' },
+    keys = {
+      { '<leader>gd', '<Cmd>DiffviewOpen<CR>', desc = 'Diff view' },
+      { '<leader>gh', '<Cmd>DiffviewFileHistory<CR>', desc = 'File history' },
+    },
+  },
+
+  {
+    'akinsho/toggleterm.nvim',
+    cmd = { 'ToggleTerm', 'TermExec' },
+    opts = {
+      size = 10,
+      open_mapping = '<C-\\>',
+      hide_numbers = true,
+      shade_filetypes = {},
+      shade_terminals = true,
+      shading_factor = 0,
+      start_in_insert = true,
+      persist_size = true,
+      direction = 'horizontal',
+      close_on_exit = true,
+    },
+    keys = {
+      { '<C-\\>', '<Cmd>ToggleTerm<CR>', desc = 'Toggle terminal' },
+      { '<leader>tt', '<Cmd>ToggleTerm<CR>', desc = 'Toggle terminal' },
     },
   },
 }
