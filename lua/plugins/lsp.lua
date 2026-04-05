@@ -10,10 +10,10 @@ return {
   },
   {
     'neovim/nvim-lspconfig',
+    commit = '0203a96',
     dependencies = {
       { 'mason-org/mason.nvim', opts = {} },
-      'mason-org/mason-lspconfig.nvim',
-      'WhoIsSethDaniel/mason-tool-installer.nvim',
+      { 'mason-org/mason-lspconfig.nvim', commit = '1a31f82' },
       { 'j-hui/fidget.nvim', opts = {} },
       'saghen/blink.cmp',
       'nvim-telescope/telescope.nvim',
@@ -98,73 +98,55 @@ return {
 
       local capabilities = require('blink.cmp').get_lsp_capabilities()
 
-      local servers = {
-        lua_ls = {
-          settings = {
-            Lua = {
-              completion = { callSnippet = 'Replace' },
-            },
+      local lspconfig = require 'lspconfig'
+
+      lspconfig.lua_ls.setup {
+        capabilities = capabilities,
+        settings = {
+          Lua = {
+            completion = { callSnippet = 'Replace' },
           },
         },
-        rust_analyzer = {
-          settings = {
-            ['rust-analyzer'] = {
-              cargo = { allFeatures = true },
-              check = { command = 'clippy' },
-            },
-          },
-        },
-        pyright = {},
-        ts_ls = {},
-        jsonls = {},
-        yamlls = {},
-        html = {},
-        cssls = {},
-        bashls = {},
-        marksman = {},
       }
 
-      local ensure_installed = vim.tbl_keys(servers or {})
-      vim.list_extend(ensure_installed, {
-        'stylua',
-        'rust_analyzer',
+      lspconfig.rust_analyzer.setup {
+        capabilities = capabilities,
+        settings = {
+          ['rust-analyzer'] = {
+            cargo = { allFeatures = true },
+            check = { command = 'clippy' },
+          },
+        },
+      }
 
-        'pyright',
-        'typescript-language-server',
-        'json-lsp',
-        'yaml-language-server',
-        'html-lsp',
-        'css-lsp',
-        'bash-language-server',
-        'marksman',
-        'prettier',
-      })
-      require('mason-tool-installer').setup {
-        ensure_installed = ensure_installed,
-        pip_install_args = { '--break-system-packages' },
+      lspconfig.pyright.setup { capabilities = capabilities }
+      lspconfig.ts_ls.setup { capabilities = capabilities }
+      lspconfig.jsonls.setup {
+        capabilities = capabilities,
+        cmd = { 'vscode-json-languageserver', '--stdio' },
+      }
+      lspconfig.yamlls.setup { capabilities = capabilities }
+      lspconfig.html.setup {
+        capabilities = capabilities,
+        cmd = { 'vscode-html-languageserver', '--stdio' },
+      }
+      lspconfig.cssls.setup {
+        capabilities = capabilities,
+        cmd = { 'vscode-css-languageserver', '--stdio' },
+      }
+      lspconfig.bashls.setup { capabilities = capabilities }
+      lspconfig.marksman.setup { capabilities = capabilities }
+      lspconfig.clangd.setup {
+        capabilities = capabilities,
+        settings = {
+          clangd = { flags = { ['--background-index'] = false } },
+        },
       }
 
       require('mason-lspconfig').setup {
         ensure_installed = {},
         automatic_installation = false,
-        handlers = {
-          function(server_name)
-            local server = servers[server_name] or {}
-            server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
-            vim.lsp.config(server_name, server)
-            vim.lsp.enable(server_name)
-          end,
-        },
       }
-
-      vim.lsp.config('clangd', {
-        cmd = { 'clangd' },
-        capabilities = capabilities,
-        settings = {
-          clangd = { flags = { ['--background-index'] = false } },
-        },
-      })
-      vim.lsp.enable 'clangd'
     end,
   },
 
