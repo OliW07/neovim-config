@@ -27,9 +27,17 @@ return {
         ensure_installed = { 'delve' },
       }
 
+      local lldb_path = '/usr/bin/lldb'
+      local lldb_dap_path = '/usr/bin/lldb-dap'
+      if vim.fn.executable(lldb_dap_path) == 1 then
+        lldb_path = lldb_dap_path
+      elseif vim.fn.executable('/usr/bin/lldb-dap-19') == 1 then
+        lldb_path = '/usr/bin/lldb-dap-19'
+      end
+
       dap.adapters.lldb = {
         type = 'executable',
-        command = '/usr/bin/lldb-dap-19',
+        command = lldb_path,
         name = 'lldb',
       }
       dap.adapters.cppdbg = dap.adapters.lldb
