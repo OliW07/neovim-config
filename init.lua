@@ -17,24 +17,6 @@ require('lazy').setup({
   require 'plugins.ui',
   require 'plugins.tools',
   require 'plugins.editor',
-}, {
-  ui = {
-    icons = vim.g.have_nerd_font and {} or {
-      cmd = '⌘',
-      config = '🛠',
-      event = '📅',
-      ft = '📂',
-      init = '⚙',
-      keys = '🗝',
-      plugin = '🔌',
-      runtime = '💻',
-      require = '🌙',
-      source = '📄',
-      start = '🚀',
-      task = '📌',
-      lazy = '💤 ',
-    },
-  },
 })
 
 if vim.fn.has 'win32' == 1 then
