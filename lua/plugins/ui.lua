@@ -102,20 +102,20 @@ return {
   },
 
   {
-    'folke/tokyonight.nvim',
+    'sainnhe/everforest',
     lazy = false,
     priority = 1000,
     config = function()
-      require('tokyonight').setup {
-        style = 'storm',
-        styles = {
-          comments = { italic = false },
-          keywords = { italic = false },
-        },
-        transparent = true,
-        dim_inactive = true,
+      vim.g.everforest_background = 'medium'
+      vim.g.everforest_transparent_background = 1
+      vim.g.everforest_dim_inactive_windows = 1
+      vim.g.everforest_disable_italic_comment = 1
+      vim.g.everforest_colors_override = {
+        green = { '#b8a070', '142' },
       }
-      vim.cmd.colorscheme 'tokyonight'
+      vim.cmd.colorscheme 'everforest'
+      vim.api.nvim_set_hl(0, 'StatusLine', { bg = 'none', fg = '#d4c9b8' })
+      vim.api.nvim_set_hl(0, 'StatusLineNC', { bg = 'none', fg = '#6a6050' })
     end,
   },
 
@@ -138,26 +138,18 @@ return {
       { '-', ':Oil<CR>', desc = 'Open parent directory', silent = true },
     },
     opts = {
+      columns = {},
       view_options = {
         show_hidden = true,
       },
       keymaps = {
-        ['g?'] = 'actions.show_help',
-        ['<CR>'] = 'actions.select',
-        ['<C-s>'] = { 'actions.select', opts = { split = 'horizontal' } },
-        ['<C-v>'] = { 'actions.select', opts = { split = 'vertical' } },
-        ['<C-t>'] = { 'actions.select', opts = { tab = 'new' } },
         ['.'] = 'actions.toggle_hidden',
-        ['gc'] = 'actions.close',
         ['gx'] = 'actions.open_external',
-        ['ge'] = 'actions.rename',
-        ['gE'] = 'actions.rename_basename',
         ['gy'] = 'actions.yank_entry',
-        ['gp'] = 'actions.preview',
       },
     },
-    config = function()
-      require('oil').setup()
+    config = function(_, opts)
+      require('oil').setup(opts)
       vim.defer_fn(function()
         vim.cmd ':Oil'
       end, 100)
@@ -180,16 +172,34 @@ return {
     dependencies = { 'nvim-tree/nvim-web-devicons' },
     opts = {
       options = {
-        theme = 'auto',
+        theme = {
+          normal = {
+            a = { bg = 'none', fg = '#d4c9b8', gui = 'none' },
+            b = { bg = 'none', fg = '#d4c9b8', gui = 'none' },
+            c = { bg = 'none', fg = '#d4c9b8', gui = 'none' },
+          },
+          insert = { a = { bg = 'none', fg = '#d4c9b8', gui = 'none' } },
+          visual = { a = { bg = 'none', fg = '#d4c9b8', gui = 'none' } },
+          replace = { a = { bg = 'none', fg = '#d4c9b8', gui = 'none' } },
+          command = { a = { bg = 'none', fg = '#d4c9b8', gui = 'none' } },
+          terminal = { a = { bg = 'none', fg = '#d4c9b8', gui = 'none' } },
+          inactive = {
+            a = { bg = 'none', fg = '#6a6050', gui = 'none' },
+            b = { bg = 'none', fg = '#6a6050', gui = 'none' },
+            c = { bg = 'none', fg = '#6a6050', gui = 'none' },
+          },
+        },
         globalstatus = true,
         disabled_filetypes = { statusline = { 'dashboard', 'alpha', 'starter' } },
+        component_separators = '',
+        section_separators = '',
       },
       sections = {
         lualine_a = { 'mode' },
-        lualine_b = { 'branch', 'diff' },
-        lualine_c = {},
-        lualine_x = { 'filetype', 'fileformat', 'encoding' },
-        lualine_y = { 'progress' },
+        lualine_b = { 'branch' },
+        lualine_c = { 'filename' },
+        lualine_x = {},
+        lualine_y = {},
         lualine_z = { 'location' },
       },
       extensions = { 'oil', 'fugitive' },

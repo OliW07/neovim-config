@@ -1,6 +1,6 @@
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 vim.o.number = true
 vim.o.mouse = 'a'
@@ -30,6 +30,7 @@ vim.o.inccommand = 'split'
 vim.o.cursorline = true
 vim.o.scrolloff = 10
 vim.o.confirm = true
+vim.opt.fillchars:append { eob = ' ' }
 
 vim.api.nvim_create_autocmd('FileType', {
   group = vim.api.nvim_create_augroup('indent-folding', { clear = true }),

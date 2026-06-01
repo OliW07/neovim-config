@@ -98,18 +98,16 @@ return {
 
       local capabilities = require('blink.cmp').get_lsp_capabilities()
 
-      local lspconfig = require 'lspconfig'
-
-      lspconfig.lua_ls.setup {
+      vim.lsp.config.lua_ls = vim.tbl_deep_extend('force', vim.lsp.config.lua_ls or {}, {
         capabilities = capabilities,
         settings = {
           Lua = {
             completion = { callSnippet = 'Replace' },
           },
         },
-      }
+      })
 
-      lspconfig.rust_analyzer.setup {
+      vim.lsp.config.rust_analyzer = vim.tbl_deep_extend('force', vim.lsp.config.rust_analyzer or {}, {
         capabilities = capabilities,
         settings = {
           ['rust-analyzer'] = {
@@ -117,31 +115,63 @@ return {
             check = { command = 'clippy' },
           },
         },
-      }
+      })
 
-      lspconfig.pyright.setup { capabilities = capabilities }
-      lspconfig.ts_ls.setup { capabilities = capabilities }
-      lspconfig.jsonls.setup {
+      vim.lsp.config.pyright = vim.tbl_deep_extend('force', vim.lsp.config.pyright or {}, {
+        capabilities = capabilities,
+      })
+
+      vim.lsp.config.ts_ls = vim.tbl_deep_extend('force', vim.lsp.config.ts_ls or {}, {
+        capabilities = capabilities,
+      })
+
+      vim.lsp.config.jsonls = vim.tbl_deep_extend('force', vim.lsp.config.jsonls or {}, {
         capabilities = capabilities,
         cmd = { 'vscode-json-languageserver', '--stdio' },
-      }
-      lspconfig.yamlls.setup { capabilities = capabilities }
-      lspconfig.html.setup {
+      })
+
+      vim.lsp.config.yamlls = vim.tbl_deep_extend('force', vim.lsp.config.yamlls or {}, {
+        capabilities = capabilities,
+      })
+
+      vim.lsp.config.html = vim.tbl_deep_extend('force', vim.lsp.config.html or {}, {
         capabilities = capabilities,
         cmd = { 'vscode-html-languageserver', '--stdio' },
-      }
-      lspconfig.cssls.setup {
+      })
+
+      vim.lsp.config.cssls = vim.tbl_deep_extend('force', vim.lsp.config.cssls or {}, {
         capabilities = capabilities,
         cmd = { 'vscode-css-languageserver', '--stdio' },
-      }
-      lspconfig.bashls.setup { capabilities = capabilities }
-      lspconfig.marksman.setup { capabilities = capabilities }
-      lspconfig.clangd.setup {
+      })
+
+      vim.lsp.config.bashls = vim.tbl_deep_extend('force', vim.lsp.config.bashls or {}, {
+        capabilities = capabilities,
+      })
+
+      vim.lsp.config.marksman = vim.tbl_deep_extend('force', vim.lsp.config.marksman or {}, {
+        capabilities = capabilities,
+      })
+
+      vim.lsp.config.clangd = vim.tbl_deep_extend('force', vim.lsp.config.clangd or {}, {
         capabilities = capabilities,
         settings = {
           clangd = { flags = { ['--background-index'] = false } },
         },
-      }
+      })
+
+      vim.lsp.enable({
+        'lua_ls',
+        'rust_analyzer',
+        'pyright',
+        'ts_ls',
+        'jsonls',
+        'yamlls',
+        'html',
+        'cssls',
+        'bashls',
+        'marksman',
+        'clangd',
+      })
 
       require('mason-lspconfig').setup {
         ensure_installed = {},
