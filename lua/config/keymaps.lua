@@ -25,6 +25,11 @@ vim.keymap.set('n', '<leader>me', '<cmd>Pencil<CR>', { desc = 'Markdown edit mod
 vim.keymap.set('n', '<leader>mn', '<cmd>noautocmd MarkdownPreviewStop<CR>', { desc = 'Markdown stop preview' })
 
 vim.keymap.set({ 'n', 'x' }, '<leader>y', '"+y', { desc = 'Yank to system clipboard' })
+vim.keymap.set('n', '<leader>yp', function()
+  local path = vim.fn.expand '%:p'
+  vim.fn.setreg('+', path)
+  vim.notify('Copied: ' .. path)
+end, { desc = 'Yank absolute file path' })
 vim.keymap.set({ 'n', 'x' }, '<leader>p', '"+p', { desc = 'Paste from system clipboard' })
 vim.keymap.set('n', '<leader>d', '"_d', { desc = 'Delete without yank' })
 vim.keymap.set('n', '<leader>D', '"_D', { desc = 'Delete line without yank' })
