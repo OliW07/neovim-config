@@ -150,9 +150,11 @@ return {
     },
     config = function(_, opts)
       require('oil').setup(opts)
-      vim.defer_fn(function()
-        vim.cmd ':Oil'
-      end, 100)
+      if vim.fn.argc() == 0 then
+        vim.defer_fn(function()
+          vim.cmd ':Oil'
+        end, 100)
+      end
     end,
   },
 

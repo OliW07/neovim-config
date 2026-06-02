@@ -127,7 +127,6 @@ return {
 
       vim.lsp.config.jsonls = vim.tbl_deep_extend('force', vim.lsp.config.jsonls or {}, {
         capabilities = capabilities,
-        cmd = { 'vscode-json-languageserver', '--stdio' },
       })
 
       vim.lsp.config.yamlls = vim.tbl_deep_extend('force', vim.lsp.config.yamlls or {}, {
@@ -136,12 +135,10 @@ return {
 
       vim.lsp.config.html = vim.tbl_deep_extend('force', vim.lsp.config.html or {}, {
         capabilities = capabilities,
-        cmd = { 'vscode-html-languageserver', '--stdio' },
       })
 
       vim.lsp.config.cssls = vim.tbl_deep_extend('force', vim.lsp.config.cssls or {}, {
         capabilities = capabilities,
-        cmd = { 'vscode-css-languageserver', '--stdio' },
       })
 
       vim.lsp.config.bashls = vim.tbl_deep_extend('force', vim.lsp.config.bashls or {}, {
