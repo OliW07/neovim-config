@@ -86,7 +86,21 @@ return {
     event = { 'BufReadPre', 'BufNewFile' },
     config = function()
       local lint = require 'lint'
-      lint.linters_by_ft = {}
+      lint.linters_by_ft = {
+        python = { 'ruff' },
+        javascript = { 'eslint' },
+        typescript = { 'eslint' },
+        javascriptreact = { 'eslint' },
+        typescriptreact = { 'eslint' },
+        lua = { 'selene' },
+        c = { 'cppcheck' },
+        cpp = { 'cppcheck' },
+        go = { 'staticcheck' },
+        sh = { 'shellcheck' },
+        bash = { 'shellcheck' },
+        yaml = { 'yamllint' },
+        markdown = { 'vale' },
+      }
 
       local lint_augroup = vim.api.nvim_create_augroup('lint', { clear = true })
       vim.api.nvim_create_autocmd({ 'BufEnter', 'BufWritePost', 'InsertLeave' }, {
