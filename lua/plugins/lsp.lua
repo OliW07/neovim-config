@@ -28,7 +28,7 @@ return {
 
           map('grn', vim.lsp.buf.rename, 'Rename')
           map('gra', vim.lsp.buf.code_action, 'Code action', { 'n', 'x' })
-          map('grr', require('telescope.builtin').lsp_references, 'Goto references')
+          map('grr', vim.lsp.buf.references, 'Goto references')
           map('gri', require('telescope.builtin').lsp_implementations, 'Goto implementation')
           map('grd', require('telescope.builtin').lsp_definitions, 'Goto definition')
           map('grD', vim.lsp.buf.declaration, 'Goto declaration')
