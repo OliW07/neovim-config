@@ -151,7 +151,7 @@ return {
       vim.lsp.config.clangd = vim.tbl_deep_extend('force', vim.lsp.config.clangd or {}, {
         capabilities = capabilities,
         settings = {
-          clangd = { flags = { ['--background-index'] = false } },
+          clangd = { flags = { ['--background-index'] = true } },
         },
       })
 
