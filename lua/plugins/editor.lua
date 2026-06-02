@@ -19,6 +19,11 @@ return {
   },
 
   {
+    'tpope/vim-fugitive',
+    cmd = { 'G', 'Git', 'Gdiffsplit', 'Gread', 'Gwrite', 'Gstatus', 'Glog', 'Gblame' },
+  },
+
+  {
     'echasnovski/mini.nvim',
     config = function()
       require('mini.ai').setup { n_lines = 500 }
