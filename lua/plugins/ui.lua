@@ -45,8 +45,6 @@ return {
       }
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
-
-
     end,
   },
 
@@ -197,7 +195,7 @@ return {
       lsp = {
         override = {
           ['vim.lsp.util.convert_input_to_markdown_lines'] = true,
-            ['vim.lsp.util.stylize_markdown'] = true,
+          ['vim.lsp.util.stylize_markdown'] = true,
         },
       },
       presets = {
@@ -209,7 +207,6 @@ return {
     },
     keys = {
       { '<S-Enter>', function() require('noice').redirect(vim.fn.getcmdline()) end, mode = 'c', desc = 'Redirect cmdline' },
-
     },
   },
 
