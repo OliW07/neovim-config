@@ -33,7 +33,6 @@ vim.keymap.set({ 'n', 'x' }, '<leader>c', '"_c', { desc = 'Change without yank' 
 vim.keymap.set('n', 'gp', '`[v`]', { desc = 'Select last pasted' })
 
 vim.keymap.set('n', '<leader>w', '<cmd>w<CR>', { desc = 'Save buffer' })
-vim.keymap.set('n', '<leader>b', '<cmd>enew<CR>', { desc = 'New buffer' })
 vim.keymap.set('n', '<leader>bd', '<cmd>bd<CR>', { desc = 'Delete buffer' })
 
 vim.keymap.set('n', '<leader>ff', function()
