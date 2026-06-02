@@ -225,8 +225,7 @@ return {
       lsp = {
         override = {
           ['vim.lsp.util.convert_input_to_markdown_lines'] = true,
-          ['vim.lsp.util.stylize_markdown'] = true,
-          ['cmp.entry.get_documentation'] = true,
+            ['vim.lsp.util.stylize_markdown'] = true,
         },
       },
       presets = {
@@ -238,8 +237,7 @@ return {
     },
     keys = {
       { '<S-Enter>', function() require('noice').redirect(vim.fn.getcmdline()) end, mode = 'c', desc = 'Redirect cmdline' },
-      { '<leader>sn', function() require('noice').cmd 'history' end, desc = 'Noice history' },
-      { '<leader>sa', function() require('noice').cmd 'all' end, desc = 'Noice all' },
+
     },
   },
 
