@@ -46,34 +46,7 @@ return {
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
 
-      local builtin = require 'telescope.builtin'
-      vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = 'Search help' })
-      vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = 'Search keymaps' })
-      vim.keymap.set('n', '<leader>sf', builtin.find_files, { desc = 'Search files' })
-      vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = 'Search select' })
-      vim.keymap.set('n', '<leader>sw', builtin.grep_string, { desc = 'Search word' })
-      vim.keymap.set('n', '<leader>sg', builtin.live_grep, { desc = 'Search grep' })
-      vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = 'Search diagnostics' })
-      vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = 'Search resume' })
-      vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = 'Search recent' })
-      vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = 'Find buffers' })
-      vim.keymap.set('n', '<leader>/', function()
-        builtin.current_buffer_fuzzy_find(require('telescope.themes').get_dropdown {
-          winblend = 10,
-          previewer = false,
-        })
-      end, { desc = 'Fuzzy search in buffer' })
-      vim.keymap.set('n', '<leader>s/', function()
-        builtin.live_grep { grep_open_files = true, prompt_title = 'Live Grep in Open Files' }
-      end, { desc = 'Search in open files' })
-      vim.keymap.set('n', '<leader>sn', function()
-        builtin.find_files { cwd = vim.fn.stdpath 'config' }
-      end, { desc = 'Search neovim files' })
-      vim.keymap.set('n', '<leader>sp', builtin.git_files, { desc = 'Search git files' })
-      vim.keymap.set('n', '<leader>st', builtin.tags, { desc = 'Search tags' })
-      vim.keymap.set('n', '<leader>sc', builtin.git_commits, { desc = 'Git commits' })
-      vim.keymap.set('n', '<leader>sC', builtin.git_bcommits, { desc = 'Git buffer commits' })
-      vim.keymap.set('n', '<leader>sb', builtin.git_branches, { desc = 'Git branches' })
+
     end,
   },
 
@@ -93,7 +66,6 @@ return {
         },
       },
       spec = {
-        { '<leader>s', group = 'Search' },
         { '<leader>t', group = 'Toggle' },
         { '<leader>h', group = 'Git hunk', mode = { 'n', 'v' } },
         { '<leader>g', group = 'Git' },
