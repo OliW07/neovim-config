@@ -150,9 +150,7 @@ return {
 
       vim.lsp.config.clangd = vim.tbl_deep_extend('force', vim.lsp.config.clangd or {}, {
         capabilities = capabilities,
-        settings = {
-          clangd = { flags = { ['--background-index'] = true } },
-        },
+        cmd = { 'clangd', '--background-index=false', '--clang-tidy=false' },
       })
 
       vim.lsp.enable({

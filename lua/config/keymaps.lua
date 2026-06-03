@@ -8,6 +8,11 @@ vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to right window'
 vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to lower window' })
 vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to upper window' })
 
+vim.keymap.set('n', '<S-h>', '<C-w><C-h>', { desc = 'Move focus to left window' })
+vim.keymap.set('n', '<S-l>', '<C-w><C-l>', { desc = 'Move focus to right window' })
+vim.keymap.set('n', '<S-j>', '<C-w><C-j>', { desc = 'Move focus to lower window' })
+vim.keymap.set('n', '<S-k>', '<C-w><C-k>', { desc = 'Move focus to upper window' })
+
 vim.keymap.set('t', '<C-h>', '<C-\\><C-n><C-w><C-h>', { desc = 'Move focus to left window' })
 vim.keymap.set('t', '<C-l>', '<C-\\><C-n><C-w><C-l>', { desc = 'Move focus to right window' })
 vim.keymap.set('t', '<C-j>', '<C-\\><C-n><C-w><C-j>', { desc = 'Move focus to lower window' })
@@ -60,3 +65,51 @@ vim.keymap.set('n', '<leader>fc', function()
 end, { desc = 'Find colorschemes' })
 
 vim.keymap.set('n', '<leader>so', '<cmd>source<CR>', { desc = 'Source init.lua' })
+
+vim.keymap.set('n', '<leader>gb', function()
+  require('gitsigns').blame_line()
+end, { desc = 'Git blame line' })
+
+vim.keymap.set('n', '<leader>gS', function()
+  local file = vim.fn.expand('%:p')
+  local line = vim.fn.line('.')
+  local cmd = 'git blame -L ' .. line .. ',' .. line .. ' -s ' .. vim.fn.shellescape(file)
+  local output = vim.fn.system(cmd)
+  local commit = output:match('^(%w+)')
+  if commit and commit ~= '0000000000000000000000000000000000000000' then
+    vim.cmd('tab G show ' .. commit)
+  else
+    vim.notify('No commit found for this line')
+  end
+end, { desc = 'Git show full commit for current line' })
+
+-- Git hunk operations (gitsigns)
+vim.keymap.set('n', '<leader>hs', function()
+  require('gitsigns').stage_hunk()
+end, { desc = 'Stage hunk' })
+vim.keymap.set('n', '<leader>hr', function()
+  require('gitsigns').reset_hunk()
+end, { desc = 'Reset hunk' })
+vim.keymap.set('n', '<leader>hp', function()
+  require('gitsigns').preview_hunk()
+end, { desc = 'Preview hunk' })
+vim.keymap.set('n', '<leader>hu', function()
+  require('gitsigns').undo_stage_hunk()
+end, { desc = 'Undo stage hunk' })
+vim.keymap.set('n', '<leader>hd', function()
+  require('gitsigns').diffthis()
+end, { desc = 'Diff this file' })
+vim.keymap.set('v', '<leader>hs', function()
+  require('gitsigns').stage_hunk { vim.fn.line('.'), vim.fn.line('v') }
+end, { desc = 'Stage hunk' })
+vim.keymap.set('v', '<leader>hr', function()
+  require('gitsigns').reset_hunk { vim.fn.line('.'), vim.fn.line('v') }
+end, { desc = 'Reset hunk' })
+
+-- Git operations (fugitive)
+vim.keymap.set('n', '<leader>gs', '<cmd>G<CR>', { desc = 'Git status' })
+vim.keymap.set('n', '<leader>gl', '<cmd>G log<CR>', { desc = 'Git log' })
+vim.keymap.set('n', '<leader>gc', '<cmd>Git commit<CR>', { desc = 'Git commit' })
+vim.keymap.set('n', '<leader>gp', '<cmd>Git pull<CR>', { desc = 'Git pull' })
+vim.keymap.set('n', '<leader>gP', '<cmd>Git push<CR>', { desc = 'Git push' })
+vim.keymap.set('n', '<leader>gF', '<cmd>Git fetch<CR>', { desc = 'Git fetch' })
