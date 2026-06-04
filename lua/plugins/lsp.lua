@@ -150,7 +150,7 @@ return {
 
       vim.lsp.config('clangd', {
         capabilities = capabilities,
-        cmd = { 'clangd', '--clang-tidy=false' },
+        cmd = { 'clangd', '--clang-tidy=false', '--pch-storage=disk' },
       })
 
       vim.lsp.enable({
