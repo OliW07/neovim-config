@@ -86,6 +86,13 @@ return {
     event = { 'BufReadPre', 'BufNewFile' },
     config = function()
       local lint = require 'lint'
+
+      -- cppcheck operates per translation unit and can't see cross-TU usage.
+      -- Suppress checks that produce false positives in multi-file projects.
+      lint.linters.cppcheck.args = vim.list_extend(vim.deepcopy(lint.linters.cppcheck.args), {
+        '--suppress=unusedStructMember',
+      })
+
       lint.linters_by_ft = {
         python = { 'ruff' },
         javascript = { 'eslint' },
