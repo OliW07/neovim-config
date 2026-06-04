@@ -148,14 +148,9 @@ return {
         capabilities = capabilities,
       })
 
-      vim.lsp.config.clangd = vim.tbl_deep_extend('force', vim.lsp.config.clangd or {}, {
+      vim.lsp.config('clangd', {
         capabilities = capabilities,
-        cmd = function(root_dir)
-          if root_dir and vim.startswith(root_dir, '/home/oliver/kernel-builds/concept-kernel') then
-            return { 'clangd', '--background-index=false', '--clang-tidy=false' }
-          end
-          return { 'clangd', '--background-index=true', '--clang-tidy=false' }
-        end,
+        cmd = { 'clangd', '--clang-tidy=false' },
       })
 
       vim.lsp.enable({
