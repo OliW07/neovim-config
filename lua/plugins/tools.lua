@@ -143,6 +143,7 @@ return {
     opts = {
       cmake_build_directory = 'build',
       cmake_generate_options = { '-DCMAKE_EXPORT_COMPILE_COMMANDS=1' },
+      cmake_build_args = { '-j', tostring(tonumber(vim.fn.system('nproc')) or 1) },
       cmake_executor = { name = 'quickfix', opts = {} },
       cmake_runner = { name = 'terminal' },
       cmake_dap_configuration = {
