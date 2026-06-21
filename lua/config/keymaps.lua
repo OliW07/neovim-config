@@ -113,3 +113,124 @@ vim.keymap.set('n', '<leader>gc', '<cmd>Git commit<CR>', { desc = 'Git commit' }
 vim.keymap.set('n', '<leader>gp', '<cmd>Git pull<CR>', { desc = 'Git pull' })
 vim.keymap.set('n', '<leader>gP', '<cmd>Git push<CR>', { desc = 'Git push' })
 vim.keymap.set('n', '<leader>gF', '<cmd>Git fetch<CR>', { desc = 'Git fetch' })
+
+-- Makefile project: build, run, debug
+local last_exe_file = vim.fn.stdpath('data') .. '/make_last_exe.json'
+local last_exe = {}
+
+local function load_last_exe()
+  local ok, data = pcall(vim.fn.readfile, last_exe_file)
+  if ok and #data > 0 then
+    pcall(function() last_exe = vim.fn.json_decode(table.concat(data, '\n')) end)
+  end
+end
+
+local function save_last_exe()
+  vim.fn.writefile({ vim.fn.json_encode(last_exe) }, last_exe_file)
+end
+
+load_last_exe()
+
+local function make_find_dir()
+  local buf_path = vim.fn.expand '%:p'
+  local dir = buf_path:gsub('^%a[%w.+-]*://', '')
+  dir = vim.fn.fnamemodify(dir, ':h')
+  if vim.fn.isdirectory(dir) ~= 1 then
+    dir = vim.fn.getcwd()
+  end
+  local mf = vim.fn.findfile('Makefile', dir .. ';')
+  if mf == '' then
+    for _, sub in ipairs({ 'src', 'build', '.' }) do
+      local p = dir .. '/' .. sub .. '/Makefile'
+      if vim.fn.filereadable(p) == 1 then mf = p; break end
+    end
+  end
+  if mf == '' then
+    vim.notify('No Makefile found', vim.log.levels.ERROR)
+    return nil
+  end
+  return vim.fn.fnamemodify(mf, ':h')
+end
+
+local function make_build()
+  vim.cmd 'wa'
+  local make_dir = make_find_dir()
+  if not make_dir then return false end
+  local nproc = tonumber(vim.fn.system('nproc')) or 1
+  local out = vim.fn.system('make -j' .. nproc .. ' -C ' .. vim.fn.shellescape(make_dir) .. ' 2>&1')
+  if vim.v.shell_error ~= 0 then
+    local lines = vim.split(out, '\n')
+    vim.notify('Build failed', vim.log.levels.ERROR)
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+    vim.api.nvim_set_option_value('buftype', 'nofile', { buf = buf })
+    vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = buf })
+    vim.api.nvim_set_current_buf(buf)
+    return false
+  end
+  vim.notify('Build OK', vim.log.levels.INFO)
+  return make_dir
+end
+
+local function make_find_exe(make_dir)
+  if last_exe[make_dir] and vim.fn.executable(last_exe[make_dir]) == 1 then
+    return last_exe[make_dir]
+  end
+  local candidates = {}
+  for _, pat in ipairs({ make_dir .. '/*', make_dir .. '/build/*', vim.fn.getcwd() .. '/*' }) do
+    for _, f in ipairs(vim.fn.glob(pat, false, true)) do
+      if vim.fn.executable(f) == 1 and not vim.fn.isdirectory(f) then
+        table.insert(candidates, f)
+      end
+    end
+  end
+  local exe
+  if #candidates == 1 then
+    exe = candidates[1]
+  elseif #candidates > 1 then
+    local idx = vim.fn.inputlist(vim.list_extend({ 'Select executable:' }, candidates))
+    if idx > 0 and idx <= #candidates then exe = candidates[idx] end
+  end
+  if not exe or exe == '' then
+    exe = vim.fn.input('Executable: ', vim.fn.getcwd() .. '/', 'file')
+  end
+  if exe ~= '' then
+    last_exe[make_dir] = exe
+    save_last_exe()
+  end
+  return exe
+end
+
+vim.keymap.set('n', '<leader>mb', function()
+  make_build()
+end, { desc = 'Make build' })
+
+vim.keymap.set('n', '<leader>mr', function()
+  local make_dir = make_build()
+  if not make_dir then return end
+  local exe = make_find_exe(make_dir)
+  if exe ~= '' and vim.fn.executable(exe) == 1 then
+    vim.cmd('belowright 15split | terminal ' .. vim.fn.shellescape(exe))
+  else
+    vim.notify('No executable selected', vim.log.levels.WARN)
+  end
+end, { desc = 'Make build & run' })
+
+vim.keymap.set('n', '<leader>md', function()
+  local make_dir = make_build()
+  if not make_dir then return end
+  local exe = make_find_exe(make_dir)
+  if exe ~= '' then
+    require('dap').run {
+      type = 'lldb',
+      request = 'launch',
+      program = exe,
+      cwd = vim.fn.getcwd(),
+      stopOnEntry = false,
+      args = {},
+      runInTerminal = true,
+    }
+  else
+    vim.notify('No executable selected', vim.log.levels.WARN)
+  end
+end, { desc = 'Make build & debug' })
