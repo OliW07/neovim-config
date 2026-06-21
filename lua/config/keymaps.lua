@@ -32,6 +32,7 @@ vim.keymap.set('n', '<leader>mn', '<cmd>noautocmd MarkdownPreviewStop<CR>', { de
 vim.keymap.set({ 'n', 'x' }, '<leader>y', '"+y', { desc = 'Yank to system clipboard' })
 vim.keymap.set('n', '<leader>yp', function()
   local path = vim.fn.expand '%:p'
+  path = path:gsub('^%a[%w.+-]*://', '')
   vim.fn.setreg('+', path)
   vim.notify('Copied: ' .. path)
 end, { desc = 'Yank absolute file path' })
