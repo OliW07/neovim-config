@@ -84,8 +84,8 @@ return {
         green = { '#b8a070', '142' },
       }
       vim.cmd.colorscheme 'everforest'
-      vim.api.nvim_set_hl(0, 'StatusLine', { bg = 'none', fg = '#d4c9b8' })
-      vim.api.nvim_set_hl(0, 'StatusLineNC', { bg = 'none', fg = '#6a6050' })
+      vim.api.nvim_set_hl(0, 'StatusLine', { bg = 'none', fg = '#D4C9B8' })
+      vim.api.nvim_set_hl(0, 'StatusLineNC', { bg = 'none', fg = '#5A5247' })
     end,
   },
 
@@ -146,19 +146,19 @@ return {
       options = {
         theme = {
           normal = {
-            a = { bg = 'none', fg = '#d4c9b8', gui = 'none' },
-            b = { bg = 'none', fg = '#d4c9b8', gui = 'none' },
-            c = { bg = 'none', fg = '#d4c9b8', gui = 'none' },
+            a = { bg = 'none', fg = '#D4C9B8', gui = 'none' },
+            b = { bg = 'none', fg = '#D4C9B8', gui = 'none' },
+            c = { bg = 'none', fg = '#D4C9B8', gui = 'none' },
           },
-          insert = { a = { bg = 'none', fg = '#d4c9b8', gui = 'none' } },
-          visual = { a = { bg = 'none', fg = '#d4c9b8', gui = 'none' } },
-          replace = { a = { bg = 'none', fg = '#d4c9b8', gui = 'none' } },
-          command = { a = { bg = 'none', fg = '#d4c9b8', gui = 'none' } },
-          terminal = { a = { bg = 'none', fg = '#d4c9b8', gui = 'none' } },
+          insert = { a = { bg = 'none', fg = '#A8C08A', gui = 'none' } },
+          visual = { a = { bg = 'none', fg = '#C0A8C0', gui = 'none' } },
+          replace = { a = { bg = 'none', fg = '#D4877A', gui = 'none' } },
+          command = { a = { bg = 'none', fg = '#8AB8C0', gui = 'none' } },
+          terminal = { a = { bg = 'none', fg = '#8AC0B0', gui = 'none' } },
           inactive = {
-            a = { bg = 'none', fg = '#6a6050', gui = 'none' },
-            b = { bg = 'none', fg = '#6a6050', gui = 'none' },
-            c = { bg = 'none', fg = '#6a6050', gui = 'none' },
+            a = { bg = 'none', fg = '#5A5247', gui = 'none' },
+            b = { bg = 'none', fg = '#5A5247', gui = 'none' },
+            c = { bg = 'none', fg = '#5A5247', gui = 'none' },
           },
         },
         globalstatus = true,
