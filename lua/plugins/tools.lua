@@ -27,12 +27,24 @@ return {
         ensure_installed = { 'delve' },
       }
 
-      local lldb_path = '/usr/bin/lldb'
-      local lldb_dap_path = '/usr/bin/lldb-dap'
-      if vim.fn.executable(lldb_dap_path) == 1 then
-        lldb_path = lldb_dap_path
-      elseif vim.fn.executable('/usr/bin/lldb-dap-19') == 1 then
-        lldb_path = '/usr/bin/lldb-dap-19'
+      local lldb_path = nil
+      local candidates = {
+        'lldb-dap', 'lldb-dap-22', 'lldb-dap-21', 'lldb-dap-20',
+        'lldb-dap-19', 'lldb-dap-18', 'lldb-vscode',
+      }
+      for _, bin in ipairs(candidates) do
+        local path = vim.fn.exepath(bin)
+        if path and path ~= '' then
+          lldb_path = path
+          break
+        end
+      end
+      if not lldb_path then
+        vim.notify(
+          'lldb-dap not found. Install it via: sudo apt install lldb-19',
+          vim.log.levels.ERROR
+        )
+        return
       end
 
       dap.adapters.lldb = {

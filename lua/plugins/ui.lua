@@ -84,6 +84,8 @@ return {
         green = { '#b8a070', '142' },
       }
       vim.cmd.colorscheme 'everforest'
+      vim.api.nvim_set_hl(0, 'LineNrAbove', { fg = '#C4B9A0' })
+      vim.api.nvim_set_hl(0, 'LineNrBelow', { fg = '#C4B9A0' })
       vim.api.nvim_set_hl(0, 'StatusLine', { bg = 'none', fg = '#D4C9B8' })
       vim.api.nvim_set_hl(0, 'StatusLineNC', { bg = 'none', fg = '#5A5247' })
     end,
