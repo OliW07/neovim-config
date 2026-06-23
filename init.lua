@@ -6,6 +6,23 @@ if vim.env.SUDO_USER then
     vim.env.XDG_DATA_HOME = home .. '/.local/share'
     vim.env.XDG_STATE_HOME = home .. '/.local/state'
     vim.env.XDG_CACHE_HOME = home .. '/.cache'
+
+    local uid = vim.env.SUDO_UID
+    if uid then
+      local f = io.open('/proc/' .. uid .. '/environ', 'r')
+      if f then
+        local env = f:read '*a'
+        f:close()
+        for entry in env:gmatch '[^\0]+' do
+          local k, v = entry:match '^(.-)=(.*)$'
+          if k == 'PATH' then
+            vim.env.PATH = v .. ':' .. vim.env.PATH
+          elseif k == 'WAYLAND_DISPLAY' or k == 'DISPLAY' or k == 'XAUTHORITY' or k == 'XDG_RUNTIME_DIR' then
+            vim.env[k] = v
+          end
+        end
+      end
+    end
   end
 end
 
