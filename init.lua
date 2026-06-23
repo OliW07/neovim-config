@@ -1,3 +1,14 @@
+-- Use user config when running with sudo
+if vim.env.SUDO_USER then
+  local home = vim.fn.expand('~' .. vim.env.SUDO_USER)
+  if home ~= '' and home ~= ('~' .. vim.env.SUDO_USER) then
+    vim.env.XDG_CONFIG_HOME = home .. '/.config'
+    vim.env.XDG_DATA_HOME = home .. '/.local/share'
+    vim.env.XDG_STATE_HOME = home .. '/.local/state'
+    vim.env.XDG_CACHE_HOME = home .. '/.cache'
+  end
+end
+
 require 'config.options'
 require 'config.keymaps'
 require 'config.autocmds'

@@ -17,6 +17,17 @@ vim.o.shiftwidth = 4
 vim.o.expandtab = true
 vim.o.softtabstop = 4
 vim.o.undofile = true
+
+if vim.env.SUDO_USER then
+  local root_dir = '/root/.cache/nvim'
+  vim.fn.mkdir(root_dir .. '/swap', 'p')
+  vim.fn.mkdir(root_dir .. '/backup', 'p')
+  vim.fn.mkdir(root_dir .. '/undo', 'p')
+  vim.opt.directory = root_dir .. '/swap'
+  vim.opt.backupdir = root_dir .. '/backup'
+  vim.opt.undodir = root_dir .. '/undo'
+end
+
 vim.o.ignorecase = true
 vim.o.smartcase = true
 vim.o.signcolumn = 'yes'
