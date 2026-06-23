@@ -236,6 +236,24 @@ vim.keymap.set('n', '<leader>md', function()
   end
 end, { desc = 'Make build & debug' })
 
+-- Format the whole C/C++ project with clang-format
+vim.keymap.set('n', '<leader>F', function()
+  local src_files = vim.fn.glob('src/**/*.{cpp,h}', false, true)
+  local tools_files = vim.fn.glob('tools/**/*.{cpp,h}', false, true)
+  local all_files = vim.list_extend(src_files, tools_files)
+  if #all_files == 0 then
+    vim.notify('No C/C++ source files found', vim.log.levels.WARN)
+    return
+  end
+  local cmd = 'clang-format -i --verbose ' .. table.concat(all_files, ' ')
+  vim.fn.system(cmd)
+  if vim.v.shell_error == 0 then
+    vim.notify('Formatted ' .. #all_files .. ' files', vim.log.levels.INFO)
+  else
+    vim.notify('clang-format failed', vim.log.levels.ERROR)
+  end
+end, { desc = 'Format entire project with clang-format' })
+
 -- CMake helpers: always export compile_commands.json for LSP
 local function cmake_find_build_dir()
   local buf_path = vim.fn.expand '%:p'
