@@ -21,6 +21,10 @@ return {
           find_files = { theme = 'dropdown', previewer = false },
         },
         defaults = {
+          vimgrep_arguments = {
+            'rg', '--no-heading', '--with-filename',
+            '--line-number', '--column', '--case-sensitive',
+          },
           file_ignore_patterns = { 'node_modules', '.git', 'dist', 'build', 'target' },
           mappings = {
             i = {
@@ -38,7 +42,7 @@ return {
             fuzzy = true,
             override_generic_sorter = true,
             override_file_sorter = true,
-            case_mode = 'smart_case',
+            case_mode = 'case_match',
           },
           ['ui-select'] = { require('telescope.themes').get_dropdown() },
         },
