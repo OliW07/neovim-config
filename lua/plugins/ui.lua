@@ -42,7 +42,7 @@ return {
             fuzzy = true,
             override_generic_sorter = true,
             override_file_sorter = true,
-            case_mode = 'case_match',
+            case_mode = 'respect_case',
           },
           ['ui-select'] = { require('telescope.themes').get_dropdown() },
         },
