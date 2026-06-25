@@ -84,8 +84,10 @@ return {
         green = { '#b8a070', '142' },
       }
       vim.cmd.colorscheme 'everforest'
+      vim.api.nvim_set_hl(0, 'LineNr', { fg = '#C4B9A0' })
       vim.api.nvim_set_hl(0, 'LineNrAbove', { fg = '#C4B9A0' })
       vim.api.nvim_set_hl(0, 'LineNrBelow', { fg = '#C4B9A0' })
+      vim.api.nvim_set_hl(0, 'CursorLineNr', { fg = '#D4C9B8' })
       vim.api.nvim_set_hl(0, 'StatusLine', { bg = 'none', fg = '#D4C9B8' })
       vim.api.nvim_set_hl(0, 'StatusLineNC', { bg = 'none', fg = '#5A5247' })
     end,
@@ -172,7 +174,16 @@ return {
         lualine_a = { 'mode' },
         lualine_b = { 'branch' },
         lualine_c = { 'filename' },
-        lualine_x = {},
+        lualine_x = {
+          {
+            function()
+              local reg = vim.fn.reg_recording()
+              if reg == '' then return '' end
+              return 'recording @' .. reg
+            end,
+            color = { fg = '#D4877A' },
+          },
+        },
         lualine_y = {},
         lualine_z = { 'location' },
       },

@@ -50,6 +50,12 @@ return {
   },
 
   {
+    'mluders/comfy-line-numbers.nvim',
+    event = 'BufReadPre',
+    opts = {},
+  },
+
+  {
     'lukas-reineke/indent-blankline.nvim',
     main = 'ibl',
     opts = {},
