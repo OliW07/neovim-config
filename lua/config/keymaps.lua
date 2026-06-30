@@ -372,3 +372,17 @@ vim.keymap.set('n', '<leader>cd', function()
     vim.notify('No executable selected', vim.log.levels.WARN)
   end
 end, { desc = 'CMake build & debug' })
+
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'qf',
+  callback = function()
+    vim.keymap.set('n', 'dd', function()
+      local idx = vim.fn.line('.')
+      local list = vim.fn.getqflist()
+      if idx > #list then return end
+      table.remove(list, idx)
+      vim.fn.setqflist(list, 'r')
+      vim.api.nvim_buf_setlines(0, idx - 1, idx, false, {})
+    end, { buffer = true, desc = 'Delete entry from quickfix' })
+  end,
+})
