@@ -87,6 +87,24 @@ return {
     'MeanderingProgrammer/render-markdown.nvim',
     dependencies = { 'nvim-treesitter/nvim-treesitter', 'nvim-tree/nvim-web-devicons' },
     ft = { 'markdown', 'Avante' },
-    opts = {},
+    opts = {
+      heading = {
+        backgrounds = {},
+      },
+      code = {
+        border = 'thin',
+        above = '▔',
+        below = '▁',
+      },
+    },
+    config = function(_, opts)
+      require('render-markdown').setup(opts)
+      require('render-markdown.core.colors').init()
+      require('render-markdown.core.command').init()
+      require('render-markdown.core.log').init()
+      require('render-markdown.core.manager').init()
+      vim.api.nvim_set_hl(0, 'RenderMarkdownCodeInline', {})
+      vim.api.nvim_set_hl(0, 'RenderMarkdownCode', { bg = '#121212' })
+    end,
   },
 }

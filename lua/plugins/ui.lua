@@ -94,6 +94,11 @@ return {
       vim.api.nvim_set_hl(0, 'CursorLineNr', { fg = '#D4C9B8' })
       vim.api.nvim_set_hl(0, 'StatusLine', { bg = 'none', fg = '#D4C9B8' })
       vim.api.nvim_set_hl(0, 'StatusLineNC', { bg = 'none', fg = '#5A5247' })
+      vim.api.nvim_set_hl(0, 'Visual', { reverse = true })
+      vim.api.nvim_set_hl(0, 'VisualNOS', { reverse = true })
+      vim.api.nvim_set_hl(0, 'Search', { reverse = true })
+      vim.api.nvim_set_hl(0, 'IncSearch', { reverse = true })
+      vim.api.nvim_set_hl(0, 'Substitute', { reverse = true })
     end,
   },
 
