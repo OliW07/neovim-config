@@ -73,13 +73,20 @@ return {
     config = function()
       vim.g.pencil_wrapMode = 'soft'
       vim.g.pencil_textwidth = 80
-      vim.g.pencil_conceallevel = 0
-      vim.g.pencil_concealcursor = ''
+      vim.g.pencil_conceallevel = 2
+      vim.g.pencil_concealcursor = 'i'
     end,
   },
 
   {
     'dkarter/bullets.vim',
     ft = { 'markdown', 'text' },
+  },
+
+  {
+    'MeanderingProgrammer/render-markdown.nvim',
+    dependencies = { 'nvim-treesitter/nvim-treesitter', 'nvim-tree/nvim-web-devicons' },
+    ft = { 'markdown', 'Avante' },
+    opts = {},
   },
 }
