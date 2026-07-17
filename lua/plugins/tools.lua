@@ -24,7 +24,7 @@ return {
       require('mason-nvim-dap').setup {
         automatic_installation = true,
         handlers = {},
-        ensure_installed = { 'delve' },
+        ensure_installed = { 'delve', 'debugpy' },
       }
 
       local lldb_path = nil
@@ -77,6 +77,52 @@ return {
         },
       }
       dap.configurations.c = dap.configurations.cpp
+
+      dap.adapters.python = {
+        type = 'executable',
+        command = vim.fn.exepath 'python3' or vim.fn.exepath 'python' or 'python3',
+        args = { '-m', 'debugpy.adapter' },
+      }
+      dap.configurations.python = {
+        {
+          type = 'python',
+          request = 'launch',
+          name = 'Launch file',
+          program = '${file}',
+          pythonPath = function()
+            return vim.fn.exepath 'python3' or vim.fn.exepath 'python' or 'python3'
+          end,
+        },
+        {
+          type = 'python',
+          request = 'launch',
+          name = 'Launch with args',
+          program = function()
+            return vim.fn.input('Path to script: ', vim.fn.getcwd() .. '/', 'file')
+          end,
+          pythonPath = function()
+            return vim.fn.exepath 'python3' or vim.fn.exepath 'python' or 'python3'
+          end,
+          args = function()
+            local args_str = vim.fn.input 'Arguments: '
+            return vim.split(args_str, ' ')
+          end,
+        },
+        {
+          type = 'python',
+          request = 'launch',
+          name = 'Django',
+          program = function()
+            local manage = vim.fn.findfile('manage.py', vim.fn.getcwd() .. ';')
+            if manage ~= '' then return manage end
+            return vim.fn.input('Path to manage.py: ', vim.fn.getcwd() .. '/', 'file')
+          end,
+          pythonPath = function()
+            return vim.fn.exepath 'python3' or vim.fn.exepath 'python' or 'python3'
+          end,
+          args = { 'runserver', '--noreload' },
+        },
+      }
 
       dapui.setup {
         icons = { expanded = '▾', collapsed = '▸', current_frame = '*' },
