@@ -20,6 +20,16 @@ vim.api.nvim_create_autocmd('FileType', {
   end,
 })
 
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'rst',
+  group = vim.api.nvim_create_augroup('rst-settings', { clear = true }),
+  desc = 'Make gf follow toctree/doc paths in reStructuredText',
+  callback = function()
+    vim.opt_local.suffixesadd:append('.rst')
+    vim.opt_local.path:append('.')
+  end,
+})
+
 local numbergroup = vim.api.nvim_create_augroup('numbertoggle', { clear = true })
 vim.api.nvim_create_autocmd({ 'BufEnter', 'FocusGained', 'InsertLeave', 'WinEnter' }, {
   pattern = '*',
