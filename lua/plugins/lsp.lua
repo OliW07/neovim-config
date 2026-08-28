@@ -149,7 +149,9 @@ return {
       })
 
       vim.lsp.config('clangd', {
-        capabilities = capabilities,
+        capabilities = vim.tbl_deep_extend('force', capabilities, {
+          general = { positionEncodings = { 'utf-8', 'utf-16' } },
+        }),
         cmd = { 'clangd-22', '--clang-tidy=false', '--pch-storage=disk', '--query-driver=/usr/bin/c++,/usr/bin/g++*,/usr/bin/aarch64-linux-gnu-g++*' },
       })
 
