@@ -39,7 +39,6 @@ end, { desc = 'Yank absolute file path' })
 vim.keymap.set({ 'n', 'x' }, '<leader>p', '"+p', { desc = 'Paste from system clipboard' })
 vim.keymap.set('n', '<leader>d', '"_d', { desc = 'Delete without yank' })
 vim.keymap.set('n', '<leader>D', '"_D', { desc = 'Delete line without yank' })
-vim.keymap.set({ 'n', 'x' }, '<leader>c', '"_c', { desc = 'Change without yank' })
 
 vim.keymap.set('n', 'gp', '`[v`]', { desc = 'Select last pasted' })
 
