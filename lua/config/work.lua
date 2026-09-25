@@ -34,10 +34,14 @@ local function linear_issue_under_cursor()
 end
 
 vim.keymap.set('n', 'gf', function()
+  local ok, review = pcall(require, 'config.review')
+  if ok and review.goto_commit_under_cursor and review.goto_commit_under_cursor() then
+    return
+  end
   local issue = linear_issue_under_cursor()
   if issue then
     vim.ui.open(('https://linear.app/%s/issue/%s'):format(LINEAR_WORKSPACE, issue))
     return
   end
   vim.cmd 'normal! gf'
-end, { desc = 'Go to file or Linear WYA-* issue' })
+end, { desc = 'Go to file, Linear issue, or commit hash / PR commit diff' })

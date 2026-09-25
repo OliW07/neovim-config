@@ -9,6 +9,17 @@ vim.system = function(cmd, opts, callback)
   if cmd[1] ~= 'gh' then
     return original_system(cmd, opts, callback)
   end
+  if cmd[2] == 'api' then
+    local killed = false
+    vim.defer_fn(function()
+      callback { code = killed and 143 or 0, stdout = '[]', stderr = '' }
+    end, 40)
+    return {
+      kill = function()
+        killed = true
+      end,
+    }
+  end
   assert(cmd[2] == 'pr' and cmd[3] == 'view', 'unexpected network command')
   local number = tonumber(cmd[4])
   counts[number] = (counts[number] or 0) + 1
@@ -25,6 +36,7 @@ vim.system = function(cmd, opts, callback)
         headRefName = 'feature',
         state = 'OPEN',
         url = 'https://example.invalid/' .. number,
+        commits = {},
       },
       stderr = '',
     }

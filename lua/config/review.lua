@@ -4,8 +4,12 @@
 -- actually targets (not your local HEAD), leave line comments, submit -- all
 -- in nvim. Requires the `gh` CLI, plus telescope + diffview.
 --
+-- All review maps live under <leader>gr (which-key group "PR review").
 -- Picker: <C-a> toggles the production-base filter, <C-o> switches between
 -- your review-requested queue and every open PR still awaiting a review.
+-- <leader>grl lists the PR's commits; pick one to diff just that commit.
+-- In the summary, gf on a `commit/<sha>` token or any 7–40 hex hash
+-- (e.g. 80a2cb79e2 in a comment) opens that commit's diff.
 --
 -- Diffview commit blobs are buftype=nowrite + a diffview:// name, so Neovim
 -- will not auto-attach language servers. We attach them ourselves and present
@@ -27,9 +31,20 @@ M.config = {
   all_search = 'review:required -is:draft',
   limit = 100,
   notes_dir = vim.fn.stdpath 'state' .. '/pr-review',
-  -- Comment authors to hide in the PR summary. Lua patterns matched
-  -- case-insensitively against the login, so 'vercel' covers 'vercel[bot]' too.
-  ignore_authors = { 'vercel' },
+  -- Comment authors to hide in the PR summary. Plain substring, case
+  -- insensitive -- 'vercel' covers 'vercel[bot]', and hyphens are literal
+  -- so 'github-actions' matches.
+  ignore_authors = {
+    'vercel',
+    'linear',
+    'supabase',
+    'coderabbit',
+    'github-actions',
+    'greptile',
+    'chatgpt-codex',
+    'codesmith',
+    'blacksmith',
+  },
   -- Land on the PR summary rather than the first file's diff. The file panel
   -- stays put; opening a file from it brings the diff back.
   overview_on_open = true,
@@ -47,7 +62,7 @@ M.current = nil
 -- Scratch buffers we created for the current PR, wiped when we move on.
 M._scratch = {}
 
--- Forward declaration: the picker previews what <leader>gi renders, but that
+-- Forward declaration: the picker previews what <leader>gri renders, but that
 -- lives further down the file.
 local render_info
 
@@ -168,7 +183,7 @@ local function require_current()
   if M.current then
     return M.current
   end
-  notify('no PR open -- <leader>gr to pick one', vim.log.levels.WARN)
+  notify('no PR open -- <leader>grr to pick one', vim.log.levels.WARN)
 end
 
 --- owner/repo, from the configured remote.
@@ -572,6 +587,35 @@ local function close_previous(number)
   end
 end
 
+-- Conversation thread + inline review comments. `gh pr view --json comments`
+-- is only the issue thread; line comments are a second request.
+local function load_summary(root, number, callback, force)
+  local summary, comments, summary_err
+  local left = 2
+  local function done()
+    left = left - 1
+    if left > 0 then
+      return
+    end
+    if summary then
+      summary.reviewComments = comments or {}
+    end
+    callback(summary_err, summary)
+  end
+  local cancel_summary = review_data.summary(root, number, function(err, data)
+    summary_err, summary = err, data
+    done()
+  end, force)
+  local cancel_comments = review_data.review_comments(root, number, function(_, data)
+    comments = data
+    done()
+  end, force)
+  return function()
+    cancel_summary()
+    cancel_comments()
+  end
+end
+
 ---------------------------------------------------------------------------
 -- Opening a PR
 ---------------------------------------------------------------------------
@@ -611,7 +655,7 @@ function M.open(pr, opts)
     show_in_main(scratch_buf(('PR #%d'):format(pr.number), text, 'markdown'))
   end
   if M.config.overview_on_open then
-    cancel_open_summary = review_data.summary(root, pr.number, function(err, data)
+    cancel_open_summary = load_summary(root, pr.number, function(err, data)
       summary_error, summary = err, data
       overview()
     end, opts.force)
@@ -740,7 +784,7 @@ function M.show_picker(prs, base_filter, scope)
         end,
       },
       sorter = conf.generic_sorter {},
-      -- Preview the PR summary -- the same thing <leader>gi shows once it is
+      -- Preview the PR summary -- the same thing <leader>gri shows once it is
       -- open -- rather than the first file's diff.
       previewer = previewers.new_buffer_previewer {
         title = 'Description & details | C-d/C-u scroll | C-End/C-Home end/start',
@@ -821,20 +865,17 @@ function M.show_picker(prs, base_filter, scope)
               cancel_prefetch = review_data.prefetch(root, M.config.remote, entry.value)
             end
           end, 220)
-          if cached then
-            return
-          end
           -- Scrolling quickly should not launch a GitHub request per row.
           vim.defer_fn(function()
             if generation ~= preview_generation or not vim.api.nvim_buf_is_valid(bufnr) then
               return
             end
-            cancel_preview = review_data.summary(root, number, function(err, data)
+            cancel_preview = load_summary(root, number, function(err, data)
               if generation == preview_generation then
                 fill(err and (preview .. '\n\n' .. err) or render_info(data))
               end
             end)
-          end, 120)
+          end, cached and 0 or 120)
         end,
       },
       attach_mappings = function(prompt_bufnr, map)
@@ -991,18 +1032,249 @@ function M.open_number(arg, opts)
   end
 end
 
+--- Diff one commit against its parent. Line comments still queue against the
+--- PR head -- go back to the full PR (<leader>grR) before submitting them.
+function M.open_commit(commit)
+  local pr = require_current()
+  if not pr then
+    return
+  end
+  local sha = commit and (commit.oid or commit.sha)
+  if not sha or sha == '' then
+    notify('that commit has no sha', vim.log.levels.WARN)
+    return
+  end
+  local root = pr._root or git_root()
+  if not root then
+    notify('not inside a git repo', vim.log.levels.ERROR)
+    return
+  end
+
+  local function show()
+    open_generation = open_generation + 1
+    if cancel_open_summary then
+      cancel_open_summary()
+    end
+    close_previous(pr.number)
+    pr._commit = sha
+    M.current = pr
+    local spec = ('%s~1..%s'):format(sha, sha)
+    local ok, err = pcall(vim.cmd, ('DiffviewOpen -C=%s %s'):format(vim.fn.fnameescape(root), spec))
+    if not ok then
+      notify('DiffviewOpen failed: ' .. tostring(err), vim.log.levels.ERROR)
+      return
+    end
+    local title = commit.messageHeadline or commit.message or sha:sub(1, 7)
+    notify(('#%d %s  %s'):format(pr.number, sha:sub(1, 7), title))
+  end
+
+  run({ 'git', 'cat-file', '-e', sha .. '^{commit}' }, function(res)
+    if res.code == 0 then
+      show()
+      return
+    end
+    review_data.fetch(root, M.config.remote, pr, function(err)
+      if err then
+        notify('could not fetch that commit: ' .. err, vim.log.levels.ERROR)
+        return
+      end
+      show()
+    end, true)
+  end)
+end
+
+--- Commits on the current PR. Select one to review just that commit's diff.
+function M.commits()
+  local pr = require_current()
+  if not pr then
+    return
+  end
+  if not have_gh() then
+    return
+  end
+  local root = pr._root or git_root()
+  if not root then
+    return
+  end
+  notify('loading commits...')
+  review_data.commits(root, pr.number, function(err, data)
+    if err then
+      notify(err, vim.log.levels.ERROR)
+      return
+    end
+    local commits = data and data.commits or {}
+    if #commits == 0 then
+      notify('no commits on #' .. pr.number)
+      return
+    end
+
+    local pickers = require 'telescope.pickers'
+    local finders = require 'telescope.finders'
+    local conf = require('telescope.config').values
+    local actions = require 'telescope.actions'
+    local action_state = require 'telescope.actions.state'
+    local entry_display = require 'telescope.pickers.entry_display'
+    local displayer = entry_display.create {
+      separator = '  ',
+      items = { { width = 4 }, { width = 10 }, { width = 7 }, { width = 14 }, { remaining = true } },
+    }
+
+    local rows = {
+      {
+        full_pr = true,
+        ordinal = 'full pr all commits',
+        display = function()
+          return displayer {
+            { 'PR', 'TelescopeResultsNumber' },
+            { '', 'TelescopeResultsComment' },
+            { 'full', 'TelescopeResultsComment' },
+            { '', 'TelescopeResultsIdentifier' },
+            ('#%d %s'):format(pr.number, pr.title or ''),
+          }
+        end,
+      },
+    }
+    for i, commit in ipairs(commits) do
+      local author = '?'
+      if commit.authors and commit.authors[1] then
+        author = commit.authors[1].login or commit.authors[1].name or '?'
+      end
+      local date = (commit.committedDate or commit.authoredDate or ''):sub(1, 10)
+      table.insert(rows, {
+        commit = commit,
+        ordinal = ('%s %s %s %s'):format(date, commit.oid or '', commit.messageHeadline or '', author),
+        display = function()
+          return displayer {
+            { tostring(i), 'TelescopeResultsNumber' },
+            { date, 'TelescopeResultsComment' },
+            { (commit.oid or '?'):sub(1, 7), 'TelescopeResultsIdentifier' },
+            { author, 'TelescopeResultsIdentifier' },
+            commit.messageHeadline or '(no message)',
+          }
+        end,
+      })
+    end
+
+    pickers
+      .new({}, {
+        prompt_title = ('#%d commits'):format(pr.number),
+        finder = finders.new_table {
+          results = rows,
+          entry_maker = function(row)
+            return {
+              value = row,
+              ordinal = row.ordinal,
+              display = row.display,
+            }
+          end,
+        },
+        sorter = conf.generic_sorter {},
+        attach_mappings = function(prompt_bufnr)
+          actions.select_default:replace(function()
+            local entry = action_state.get_selected_entry()
+            actions.close(prompt_bufnr)
+            if not entry then
+              return
+            end
+            if entry.value.full_pr then
+              M.open(pr)
+            else
+              M.open_commit(entry.value.commit)
+            end
+          end)
+          return true
+        end,
+      })
+      :find()
+  end)
+end
+
+--- Git object ids are 7–40 hex. Cursor may sit on the hex, a leading `#`,
+--- or the `commit/` prefix used on activity timeline lines.
+--- Returns sha, kind (`link` for `commit/<sha>`, `bare` otherwise).
+local function sha_under_cursor()
+  local line = vim.api.nvim_get_current_line()
+  local col = vim.api.nvim_win_get_cursor(0)[2] + 1
+  local start = 1
+  while true do
+    local s, e = line:find('[0-9a-fA-F]+', start)
+    if not s then
+      return
+    end
+    local sha = line:sub(s, e)
+    if #sha >= 7 and #sha <= 40 then
+      local left = s
+      local kind = 'bare'
+      if s > 7 and line:sub(s - 7, s - 1) == 'commit/' then
+        left = s - 7
+        kind = 'link'
+      elseif s > 1 and line:sub(s - 1, s - 1) == '#' then
+        left = s - 1
+      end
+      if col >= left and col <= e then
+        return sha, kind
+      end
+    end
+    start = e + 1
+  end
+end
+
+--- `gf` on `commit/abc1234` or a bare hash like `80a2cb79e2` in a message.
+function M.goto_commit_under_cursor()
+  local sha, kind = sha_under_cursor()
+  if not sha then
+    return false
+  end
+  if not M.current then
+    if kind == 'link' then
+      notify('no PR open -- <leader>grr to pick one', vim.log.levels.WARN)
+      return true
+    end
+    return false
+  end
+  local line = vim.api.nvim_get_current_line()
+  M.open_commit {
+    oid = sha,
+    messageHeadline = line:match 'commit/%x+%s+%S+%s+(.*)$' or sha,
+  }
+  return true
+end
+
 ---------------------------------------------------------------------------
 -- Context: description, comments, CI
 ---------------------------------------------------------------------------
 
 local function ignored_author(login)
   login = (login or ''):lower()
-  for _, pattern in ipairs(M.config.ignore_authors or {}) do
-    if login:find(pattern:lower()) then
+  if login == '' then
+    return false
+  end
+  for _, needle in ipairs(M.config.ignore_authors or {}) do
+    if login:find(needle:lower(), 1, true) then
       return true
     end
   end
   return false
+end
+
+-- Blacksmith injects an HTML <!-- codesmith:footer --> block into PR bodies.
+local function strip_review_noise(text)
+  text = text or ''
+  local lowered = text:lower()
+  local s = lowered:find('<!-- codesmith:footer', 1, true) or lowered:find('<!--codesmith:footer', 1, true)
+  if s then
+    local close = lowered:find('<!-- /codesmith:footer', s, true) or lowered:find('<!--/codesmith:footer', s, true)
+    if close then
+      local ce = text:find('-->', close, true)
+      text = text:sub(1, s - 1) .. (ce and text:sub(ce + 3) or '')
+    else
+      text = text:sub(1, s - 1)
+    end
+  end
+  text = text:gsub('<%!%-%-[^\n]-codesmith[^\n]-%-%->', '')
+  text = text:gsub('\n%-%-%-%s*$', '')
+  text = text:gsub('\n%s*\n%s*\n+', '\n\n')
+  return vim.trim(text)
 end
 
 --- Title, metadata, description, reviews and comments as one markdown document.
@@ -1050,62 +1322,118 @@ function render_info(d)
   add '---'
   add ''
 
-  if d.body and vim.trim(d.body) ~= '' then
-    add_block(d.body)
+  local body = strip_review_noise(d.body)
+  if body ~= '' then
+    add_block(body)
   else
     add '_(no description)_'
   end
 
   local hidden = 0
+  local function iso_time(s)
+    if type(s) ~= 'string' then
+      return 0
+    end
+    local y, mo, day, h, mi, sec = s:match '^(%d+)%-(%d+)%-(%d+)T(%d+):(%d+):(%d+)'
+    if not y then
+      return 0
+    end
+    return os.time {
+      year = tonumber(y),
+      month = tonumber(mo),
+      day = tonumber(day),
+      hour = tonumber(h),
+      min = tonumber(mi),
+      sec = tonumber(sec),
+      isdst = false,
+    }
+  end
 
-  -- Reviews carrying a verdict or a summary. An empty COMMENTED review is just
-  -- the container for someone's line comments, so it is dropped.
-  local reviews = {}
+  local events = {}
   for _, r in ipairs(d.reviews or {}) do
     local login = r.author and r.author.login
     if ignored_author(login) then
       hidden = hidden + 1
     elseif vim.trim(r.body or '') ~= '' or (r.state and r.state ~= 'COMMENTED') then
-      table.insert(reviews, r)
+      local when = r.submittedAt or r.createdAt
+      table.insert(events, { kind = 'review', t = iso_time(when), item = r })
     end
   end
-
-  local comments = {}
   for _, c in ipairs(d.comments or {}) do
     if ignored_author(c.author and c.author.login) then
       hidden = hidden + 1
     else
-      table.insert(comments, c)
+      table.insert(events, { kind = 'comment', t = iso_time(c.createdAt), item = c })
     end
   end
+  for _, commit in ipairs(d.commits or {}) do
+    local when = commit.committedDate or commit.authoredDate
+    table.insert(events, { kind = 'commit', t = iso_time(when), item = commit })
+  end
+  for _, c in ipairs(d.reviewComments or {}) do
+    local login = (c.author and c.author.login) or (c.user and c.user.login)
+    if ignored_author(login) then
+      hidden = hidden + 1
+    else
+      local when = c.createdAt or c.created_at
+      table.insert(events, { kind = 'line', t = iso_time(when), item = c })
+    end
+  end
+  for _, item in ipairs(load_queue(d.number) or {}) do
+    table.insert(events, { kind = 'queued', t = os.time(), item = item })
+  end
+  table.sort(events, function(a, b)
+    if a.t == b.t then
+      return (a.kind == 'commit' and 0 or 1) < (b.kind == 'commit' and 0 or 1)
+    end
+    return a.t < b.t
+  end)
 
-  if #reviews > 0 then
+  if #events > 0 then
     add ''
     add '---'
     add ''
-    add '## Reviews'
-    for _, r in ipairs(reviews) do
+    add '## Activity'
+    for _, event in ipairs(events) do
       add ''
-      add(('### @%s — %s'):format((r.author and r.author.login) or '?', r.state or ''))
-      add ''
-      if vim.trim(r.body or '') ~= '' then
-        add_block(r.body)
+      if event.kind == 'commit' then
+        local commit = event.item
+        local sha = (commit.oid or '?'):sub(1, 7)
+        local date = (commit.committedDate or commit.authoredDate or ''):sub(1, 10)
+        local title = commit.messageHeadline or '(no message)'
+        -- `commit/<sha>` is what gf looks for.
+        add(('`commit/%s`  %s  %s'):format(sha, date, title))
+      elseif event.kind == 'review' then
+        local r = event.item
+        add(('### @%s — %s'):format((r.author and r.author.login) or '?', r.state or ''))
+        add ''
+        if vim.trim(r.body or '') ~= '' then
+          add_block(r.body)
+        else
+          add '_(no summary)_'
+        end
+      elseif event.kind == 'line' then
+        local c = event.item
+        local login = (c.author and c.author.login) or (c.user and c.user.login) or '?'
+        local when = c.createdAt or c.created_at or ''
+        local path = c.path or '?'
+        local line = c.line or c.original_line or c.originalLine
+        local where = line and ('%s:%s'):format(path, line) or path
+        add(('### @%s — %s  `%s`'):format(login, when:sub(1, 10), where))
+        add ''
+        add_block(c.body)
+      elseif event.kind == 'queued' then
+        local item = event.item
+        local where = (item.path or '?') .. ':' .. tostring(item.line or '?')
+        add(('### queued — `%s`'):format(where))
+        add ''
+        add_block(item.body)
       else
-        add '_(no summary)_'
+        local c = event.item
+        add(('### @%s — %s'):format((c.author and c.author.login) or '?', (c.createdAt or ''):sub(1, 10)))
+        add ''
+        add_block(c.body)
       end
-    end
-  end
-
-  if #comments > 0 then
-    add ''
-    add '---'
-    add ''
-    add '## Comments'
-    for _, c in ipairs(comments) do
-      add ''
-      add(('### @%s — %s'):format((c.author and c.author.login) or '?', (c.createdAt or ''):sub(1, 10)))
-      add ''
-      add_block(c.body)
     end
   end
 
@@ -1131,7 +1459,7 @@ function M.info(opts)
     return
   end
   local generation = open_generation
-  review_data.summary(root, pr.number, function(err, data)
+  load_summary(root, pr.number, function(err, data)
     if generation ~= open_generation then
       return
     end
@@ -1142,7 +1470,7 @@ function M.info(opts)
     if not show_in_main(buf) and not opts.main_only then
       open_split(buf)
     end
-  end, true) -- Explicit <leader>gi always refreshes comments/reviews.
+  end, true) -- Explicit <leader>gri always refreshes comments/reviews.
 end
 
 --- Open the PR on github.com in the system browser.
@@ -1272,7 +1600,7 @@ local function diff_location()
 
   local view = lib.get_current_view()
   if not view or not view.cur_entry or not view.cur_layout then
-    notify('not in a diff view -- <leader>gr to open a PR', vim.log.levels.WARN)
+    notify('not in a diff view -- <leader>grr to open a PR', vim.log.levels.WARN)
     return nil
   end
 
@@ -1401,7 +1729,7 @@ function M.queued()
     table.insert(lines, ('%d. [%s] %s:%s  %s'):format(i, c.side, c.path, where, head))
   end
   table.insert(lines, '')
-  table.insert(lines, '-- :PRUncomment <n> to drop one, <leader>gQ to clear all')
+  table.insert(lines, '-- :PRUncomment <n> to drop one, <leader>grQ to clear all')
   scratch(('PR #%d queued comments'):format(pr.number), table.concat(lines, '\n'))
 end
 
@@ -1463,6 +1791,25 @@ function M.notes()
   end
 end
 
+-- Searches the picker actually caches. Dropping a PR from these avoids a
+-- full `gh pr list` after we already know it left the queue.
+local function list_searches()
+  local searches = { M.config.search, M.config.all_search }
+  if M.config.hide_approved then
+    searches[#searches + 1] = M.config.search .. ' -review:approved'
+    searches[#searches + 1] = M.config.all_search .. ' -review:approved'
+  end
+  return searches
+end
+
+local function forget_listed(pr)
+  local root = pr and (pr._root or git_root())
+  if not root or not pr.number then
+    return
+  end
+  review_data.remove_from_lists(root, list_searches(), M.config.limit, pr.number)
+end
+
 local EVENTS = {
   approve = { event = 'APPROVE', label = 'APPROVE' },
   comment = { event = 'COMMENT', label = 'COMMENT' },
@@ -1501,7 +1848,7 @@ local function submit_review(pr, kind, opts)
   -- A verdict needs something behind it, but line comments count -- an empty
   -- summary is fine when you have already said it inline.
   if body == '' and #queue == 0 and ev.event ~= 'APPROVE' then
-    notify(ev.label .. ' needs a summary (<leader>gn) or at least one line comment', vim.log.levels.WARN)
+    notify(ev.label .. ' needs a summary (<leader>grn) or at least one line comment', vim.log.levels.WARN)
     return
   end
   local payload = { commit_id = pr.headRefOid }
@@ -1526,6 +1873,9 @@ local function submit_review(pr, kind, opts)
 
   local function finished()
     save_queue(pr.number, {})
+    if ev.event == 'APPROVE' then
+      forget_listed(pr)
+    end
     notify(('#%d submitted (%s, %d line comments)'):format(pr.number, ev.label, #queue))
     if opts.on_done then
       opts.on_done()
@@ -1636,6 +1986,7 @@ function M.close_pr()
         return
       end
       notify(('#%d closed'):format(pr.number))
+      forget_listed(pr)
       tear_down()
     end)
   end
@@ -1692,42 +2043,71 @@ local function map(lhs, rhs, desc, mode)
   vim.keymap.set(mode or 'n', lhs, rhs, { desc = desc })
 end
 
-map('<leader>gr', M.pick, 'Review: pick a PR')
-map('<leader>gR', function()
+-- Old <leader>g* review maps. Drop them so which-key only shows <leader>gr.
+for _, suffix in ipairs {
+  'r',
+  'R',
+  'i',
+  'k',
+  'N',
+  'o',
+  'f',
+  'm',
+  'M',
+  'q',
+  'Q',
+  'n',
+  'A',
+  'C',
+  'X',
+  'Z',
+  'y',
+} do
+  for _, mode in ipairs { 'n', 'x' } do
+    pcall(vim.keymap.del, mode, '<leader>g' .. suffix)
+  end
+end
+for _, mode in ipairs { 'n', 'x' } do
+  pcall(vim.keymap.del, mode, '<leader>grc')
+end
+
+map('<leader>grr', M.pick, 'Review: pick a PR')
+map('<leader>grR', function()
   if M.current then
     M.open_number(tostring(M.current.number), { force = true, root = M.current._root })
   else
     M.pick()
   end
 end, 'Review: refresh current PR from GitHub')
-map('<leader>gi', function()
+map('<leader>gri', function()
   M.info()
 end, 'Review: PR description + comments')
-map('<leader>gk', M.checks, 'Review: PR checks')
-map('<leader>gN', function()
+map('<leader>grl', M.commits, 'Review: PR commit log')
+map('<leader>grk', M.checks, 'Review: PR checks')
+map('<leader>grN', function()
   M.open_number()
 end, 'Review: open PR by number')
-map('<leader>go', M.browse, 'Review: open PR in browser')
-map('<leader>gf', M.open_local, 'Review: open local copy of this file (LSP)')
+map('<leader>gro', M.browse, 'Review: open PR in browser')
+map('<leader>grf', M.open_local, 'Review: open local copy of this file (LSP)')
 
-map('<leader>gm', M.comment, 'Review: comment on this line', { 'n', 'x' })
-map('<leader>gM', M.compose, 'Review: comment (multi-line)', { 'n', 'x' })
-map('<leader>gq', M.queued, 'Review: list queued comments')
-map('<leader>gQ', M.clear_queue, 'Review: clear queued comments')
+map('<leader>grm', M.comment, 'Review: comment on this line', { 'n', 'x' })
+map('<leader>grM', M.compose, 'Review: comment (multi-line)', { 'n', 'x' })
+map('<leader>grq', M.queued, 'Review: list queued comments')
+map('<leader>grQ', M.clear_queue, 'Review: clear queued comments')
 
-map('<leader>gn', M.notes, 'Review: summary notes')
-map('<leader>gA', function()
+map('<leader>grn', M.notes, 'Review: summary notes')
+map('<leader>grA', function()
   M.submit 'approve'
 end, 'Review: submit approval')
-map('<leader>gC', function()
+map('<leader>grC', function()
   M.submit 'comment'
 end, 'Review: submit comment')
-map('<leader>gX', function()
+map('<leader>grX', function()
   M.submit 'request'
 end, 'Review: submit request-changes')
-map('<leader>gZ', M.close_pr, 'Review: close PR (send gn notes)')
+map('<leader>grZ', M.close_pr, 'Review: close PR (send gn notes)')
 
-map('<leader>gy', M.permalink, 'Review: yank GitHub permalink', { 'n', 'x' })
+map('<leader>gry', M.permalink, 'Review: yank GitHub permalink', { 'n', 'x' })
 
 -- Hunk navigation outside of diff mode (diff mode already has ]c / [c).
 map(']h', function()

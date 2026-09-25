@@ -31,22 +31,30 @@ local summary_fields = table.concat({
   'changedFiles',
   'comments',
   'reviews',
+  'commits',
 }, ',')
 local function key_for(root, kind, id)
   return vim.fn.sha256(root .. '\0' .. kind .. '\0' .. tostring(id))
 end
-local function read(key, ttl)
+local function load_entry(key)
   local entry = cache[key]
-  if not entry then
-    local ok, lines = pcall(vim.fn.readfile, M.cache_dir .. '/' .. key .. '.json')
-    if ok then
-      local decoded, value = pcall(vim.json.decode, table.concat(lines, '\n'))
-      if decoded and type(value) == 'table' then
-        entry = value
-      end
-    end
-    cache[key] = entry
+  if entry ~= nil then
+    return entry or nil
   end
+  local ok, lines = pcall(vim.fn.readfile, M.cache_dir .. '/' .. key .. '.json')
+  if ok then
+    local decoded, value = pcall(vim.json.decode, table.concat(lines, '\n'))
+    if decoded and type(value) == 'table' then
+      entry = value
+    end
+  end
+  -- Remember misses so a missing file is not re-read on every picker open.
+  cache[key] = entry or false
+  return entry
+end
+
+local function read(key, ttl)
+  local entry = load_entry(key)
   if entry and type(entry.time) == 'number' and os.time() >= entry.time and os.time() - entry.time < ttl then
     return entry.data
   end
@@ -125,18 +133,45 @@ local function valid_pr(number)
     return type(data) == 'table' and data.number == tonumber(number)
   end
 end
+local function valid_summary(number)
+  return function(data)
+    -- Reject pre-commits cache entries so the timeline refetches.
+    return valid_pr(number)(data) and type(data.commits) == 'table'
+  end
+end
 -- Synchronous local lookup lets the picker paint before any debounce/network work.
 function M.peek_summary(root, number)
   local hit = read(key_for(root, 'summary', number), 300)
-  if hit and valid_pr(number)(hit) then
+  if hit and valid_summary(number)(hit) then
     return vim.deepcopy(hit)
   end
 end
 function M.summary(root, number, callback, force)
-  return request(root, 'summary', number, { 'gh', 'pr', 'view', tostring(number), '--json', summary_fields }, 300, valid_pr(number), callback, force)
+  return request(root, 'summary', number, { 'gh', 'pr', 'view', tostring(number), '--json', summary_fields }, 300, valid_summary(number), callback, force)
 end
 function M.metadata(root, number, callback, force)
   return request(root, 'metadata', number, { 'gh', 'pr', 'view', tostring(number), '--json', M.fields }, 300, valid_pr(number), callback, force)
+end
+function M.commits(root, number, callback, force)
+  return request(root, 'commits', number, { 'gh', 'pr', 'view', tostring(number), '--json', 'commits' }, 300, function(data)
+    return type(data) == 'table' and type(data.commits) == 'table'
+  end, callback, force)
+end
+-- Line comments on the diff. `gh pr view --json comments` is only the
+-- conversation thread; these live on a separate REST list.
+function M.review_comments(root, number, callback, force)
+  return request(
+    root,
+    'review_comments',
+    number,
+    { 'gh', 'api', '--paginate', ('repos/:owner/:repo/pulls/%s/comments'):format(number) },
+    300,
+    function(data)
+      return type(data) == 'table' and vim.islist(data)
+    end,
+    callback,
+    force
+  )
 end
 function M.list(root, search, limit, callback, force)
   return request(
@@ -171,6 +206,33 @@ function M.list(root, search, limit, callback, force)
     callback,
     force
   )
+end
+
+-- Drop a PR from already-cached `gh pr list` results. The picker keys lists by
+-- search + limit, so pass every search this repo actually uses. No GitHub call.
+function M.remove_from_lists(root, searches, limit, number)
+  number = tonumber(number)
+  if not root or type(searches) ~= 'table' or not number then
+    return
+  end
+  for _, search in ipairs(searches) do
+    local key = key_for(root, 'list', search .. '\0' .. tostring(limit))
+    local entry = load_entry(key)
+    local data = entry and entry.data
+    if type(data) == 'table' and vim.islist(data) then
+      local kept, changed = {}, false
+      for _, pr in ipairs(data) do
+        if tonumber(pr.number) == number then
+          changed = true
+        else
+          kept[#kept + 1] = pr
+        end
+      end
+      if changed then
+        write(key, kept)
+      end
+    end
+  end
 end
 
 -- A cache hit must also match the actual local refs. Deleting/changing refs,

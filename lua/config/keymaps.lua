@@ -116,3 +116,62 @@ end
 vim.keymap.set('n', '<leader>F', function()
   require('config.tasks').format_project()
 end, { desc = 'Format C/C++ project' })
+
+-- :qm is :qa without leaving Neovim -- one Oil window stays. :qm! discards.
+local function quit_most(bang)
+  if not bang then
+    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].modified then
+        vim.notify('No write since last change (:qm! to discard)', vim.log.levels.ERROR)
+        return
+      end
+    end
+  end
+
+  pcall(vim.cmd.DiffviewClose)
+  local ok_review, review = pcall(require, 'config.review')
+  if ok_review then
+    review.current = nil
+  end
+
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    local cfg = vim.api.nvim_win_get_config(win)
+    if cfg.relative ~= '' then
+      pcall(vim.api.nvim_win_close, win, true)
+    end
+  end
+  if #vim.api.nvim_list_tabpages() > 1 then
+    pcall(vim.cmd, 'tabonly!')
+  end
+  if #vim.api.nvim_tabpage_list_wins(0) > 1 then
+    pcall(vim.cmd, 'only!')
+  end
+
+  local keep
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].filetype == 'oil' then
+      keep = buf
+      break
+    end
+  end
+  if keep then
+    vim.api.nvim_set_current_buf(keep)
+  else
+    local ok_oil, oil = pcall(require, 'oil')
+    if ok_oil then
+      oil.open()
+      keep = vim.api.nvim_get_current_buf()
+    end
+  end
+
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if buf ~= keep and vim.api.nvim_buf_is_valid(buf) then
+      pcall(vim.api.nvim_buf_delete, buf, { force = true })
+    end
+  end
+end
+
+vim.api.nvim_create_user_command('Qm', function(opts)
+  quit_most(opts.bang)
+end, { bang = true, desc = 'Quit all windows except the file tree' })
+vim.cmd [[cnoreabbrev <expr> qm (getcmdtype() == ':' && getcmdline() ==# 'qm') ? 'Qm' : 'qm']]

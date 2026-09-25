@@ -11,7 +11,7 @@ end
 local data = require 'config.review_data'
 data.cache_dir = vim.fn.tempname()
 local function finish(job, result)
-  job.callback(result or { code = 0, stdout = '{"number":7,"title":"example"}' })
+  job.callback(result or { code = 0, stdout = '{"number":7,"title":"example","commits":[]}' })
   vim.wait(20, function()
     return false
   end)
@@ -93,12 +93,28 @@ fresh.list('/one', 'review:required', 100, function(err, prs, hit)
   assert(not err and #prs == 0 and hit, 'empty list must survive restart')
 end)
 assert(#jobs == after_list + 1, 'restart must read list from disk')
+fresh.list('/one', 'review-requested:@me', 100, function() end)
+finish(jobs[#jobs], { code = 0, stdout = '[{"number":7,"title":"a"},{"number":8,"title":"b"}]' })
+local jobs_before_drop = #jobs
+fresh.remove_from_lists('/one', { 'review-requested:@me' }, 100, 7)
+fresh.list('/one', 'review-requested:@me', 100, function(err, prs, hit)
+  assert(not err and hit and #prs == 1 and prs[1].number == 8, 'approved PR must leave the cached list')
+end)
+assert(#jobs == jobs_before_drop, 'dropping a PR from the list must not refetch')
+package.loaded['config.review_data'] = nil
+local after_drop = require 'config.review_data'
+after_drop.cache_dir = directory
+after_drop.list('/one', 'review-requested:@me', 100, function(err, prs, hit)
+  assert(not err and hit and #prs == 1 and prs[1].number == 8, 'list drop must survive restart')
+end)
+assert(#jobs == jobs_before_drop, 'restart after drop must not refetch')
 local now = os.time
 os.time = function()
   return now() + 301
 end
+local jobs_before_expire = #jobs
 fresh.list('/one', 'review:required', 100, function() end)
-assert(#jobs == after_list + 2, 'expired list must request fresh data')
+assert(#jobs == jobs_before_expire + 1, 'expired list must request fresh data')
 os.time = now
 finish(jobs[#jobs], { code = 0, stdout = '[]' })
 local pr = { number = 7, baseRefName = 'main', headRefOid = 'aaaa', baseRefOid = 'bbbb' }

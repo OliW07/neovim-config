@@ -86,6 +86,7 @@ return {
         { '<leader>t', group = 'Toggle' },
         { '<leader>h', group = 'Git hunk', mode = { 'n', 'v' } },
         { '<leader>g', group = 'Git' },
+        { '<leader>gr', group = 'PR review', mode = { 'n', 'x' } },
       },
     },
   },
