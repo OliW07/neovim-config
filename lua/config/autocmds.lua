@@ -80,3 +80,61 @@ vim.api.nvim_create_autocmd('FileType', {
     end
   end,
 })
+
+-- In fugitive's :G log (and commit buffers), <CR> on a commit hash opens that
+-- commit in Diffview's split view against its parent instead of the inline
+-- patch. Anything else falls through to fugitive's own <CR>.
+local function commit_under_cursor()
+  local word = vim.fn.expand '<cword>'
+  if not word:match '^%x+$' or #word < 7 then
+    word = vim.api.nvim_get_current_line():match '^commit (%x+)' or ''
+  end
+  if #word < 7 then
+    return nil
+  end
+  local root = vim.fn.FugitiveWorkTree()
+  local sha = vim.fn.systemlist { 'git', '-C', root, 'rev-parse', '--verify', '--quiet', word .. '^{commit}' }[1]
+  if vim.v.shell_error ~= 0 or not sha then
+    return nil
+  end
+  return sha, root
+end
+
+local function open_commit_diff(sha, root)
+  -- A root commit has no parent, so diff it against git's empty tree.
+  vim.fn.system { 'git', '-C', root, 'rev-parse', '--verify', '--quiet', sha .. '^' }
+  local range = vim.v.shell_error == 0 and (sha .. '^!') or ('4b825dc642cb6eb9c060e54bf8b4c69280fdd7ec..' .. sha)
+  vim.cmd(('DiffviewOpen -C=%s %s'):format(vim.fn.fnameescape(root), range))
+end
+
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'git',
+  group = vim.api.nvim_create_augroup('git-log-diffview', { clear = true }),
+  desc = 'Open commits from :G log in Diffview',
+  callback = function(ev)
+    -- Fugitive may (re)map <CR> after FileType, so install ours afterwards.
+    vim.schedule(function()
+      if not vim.api.nvim_buf_is_valid(ev.buf) then
+        return
+      end
+      local fallback = vim.fn.maparg('<CR>', 'n', false, true)
+      if fallback.desc == 'Open commit in Diffview' then
+        return
+      end
+      vim.keymap.set('n', '<CR>', function()
+        local sha, root = commit_under_cursor()
+        if sha then
+          vim.schedule(function()
+            open_commit_diff(sha, root)
+          end)
+          return ''
+        end
+        if fallback.callback then
+          fallback.callback()
+          return ''
+        end
+        return vim.api.nvim_replace_termcodes(fallback.rhs or '<CR>', true, true, true)
+      end, { buffer = ev.buf, expr = true, silent = true, desc = 'Open commit in Diffview' })
+    end)
+  end,
+})
