@@ -59,6 +59,7 @@ return {
           jsonc = js,
           html = { 'prettier' },
           css = { 'prettier' },
+          yaml = { 'prettier' },
           rust = { 'rustfmt' },
           dart = { 'dart_format' },
           go = { 'goimports', 'gofumpt' },

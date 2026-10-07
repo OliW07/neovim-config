@@ -108,6 +108,7 @@ function M.setup()
     'eslint',
   }
   vim.lsp.config('lua_ls', { settings = { Lua = { completion = { callSnippet = 'Replace' } } } })
+  vim.lsp.config('yamlls', { settings = { yaml = { format = { enable = false } } } })
   vim.lsp.config('rust_analyzer', { settings = { ['rust-analyzer'] = { cargo = { allFeatures = true }, check = { command = 'clippy' } } } })
   vim.lsp.config('ts_ls', { before_init = projects.ts_before_init })
   local clangd = vim.fn.exepath 'clangd-22'
