@@ -48,8 +48,15 @@ vim.keymap.set('n', '<leader>w', '<cmd>w<CR>', { desc = 'Save buffer' })
 vim.keymap.set('n', '<leader>bd', '<cmd>bd<CR>', { desc = 'Delete buffer' })
 
 vim.keymap.set('n', '<leader>ff', function()
+  local dir = require('oil').get_current_dir()
+  if not dir and vim.bo.buftype == '' and vim.api.nvim_buf_get_name(0) ~= '' then
+    dir = vim.fn.expand '%:p:h'
+  end
+  require('telescope.builtin').find_files { cwd = dir or vim.fn.getcwd() }
+end, { desc = 'Find files in current directory' })
+vim.keymap.set('n', '<leader>fF', function()
   require('telescope.builtin').find_files()
-end, { desc = 'Find files' })
+end, { desc = 'Find files in working directory' })
 vim.keymap.set('n', '<leader>fg', function()
   require('telescope.builtin').live_grep()
 end, { desc = 'Live grep' })

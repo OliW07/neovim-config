@@ -18,7 +18,12 @@ return {
     config = function()
       require('telescope').setup {
         pickers = {
-          find_files = { theme = 'dropdown', previewer = false },
+          find_files = {
+            theme = 'dropdown',
+            previewer = false,
+            layout_config = { width = 0.9, height = 0.7 },
+            path_display = { 'relative' },
+          },
         },
         defaults = {
           vimgrep_arguments = {

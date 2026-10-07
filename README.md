@@ -20,7 +20,9 @@ or `venv`, then Python on PATH. Flutter's Dart is preferred when available.
 
 Leader is **Space**. Which-key shows groups as you type.
 
-- Search: `ff` files, `fg` grep, `fb` buffers, `fh` help, `fr` resume, `fc` themes.
+- Search: `ff` files in the current Oil directory (or current file's directory),
+  `fF` files across the working directory, `fg` grep, `fb` buffers, `fh` help,
+  `fr` resume, `fc` themes.
 - Buffers/debug: `bd` close buffer, `bb` toggle breakpoint, `bB` conditional breakpoint;
   F5 continues/starts debugging, F1/F2/F3 step, F7 toggles the debugger UI.
 - Editing: `w` save, `f` format buffer, `y` yank to clipboard, `Y` copy file path,
