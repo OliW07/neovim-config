@@ -73,8 +73,6 @@ vim.keymap.set('n', '<leader>fc', function()
   require('telescope.builtin').colorscheme()
 end, { desc = 'Find colorschemes' })
 
-vim.keymap.set('n', '<leader>so', '<cmd>source<CR>', { desc = 'Source current buffer' })
-
 vim.keymap.set('n', '<leader>gb', function()
   require('gitsigns').blame_line()
 end, { desc = 'Git blame line' })
@@ -182,3 +180,49 @@ vim.api.nvim_create_user_command('Qm', function(opts)
   quit_most(opts.bang)
 end, { bang = true, desc = 'Quit all windows except the file tree' })
 vim.cmd [[cnoreabbrev <expr> qm (getcmdtype() == ':' && getcmdline() ==# 'qm') ? 'Qm' : 'qm']]
+
+-- Clickhouse query
+vim.keymap.set('n', '<leader>kq', function()
+  if vim.bo.filetype ~= 'sql' or vim.fn.expand '%:p' == '' then
+    vim.notify('Open a named SQL file first', vim.log.levels.WARN)
+    return
+  end
+  local previous = {}
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.b[buf].chq_output then
+      local job = vim.b[buf].terminal_job_id
+      if job and vim.fn.jobwait({ job }, 0)[1] == -1 then
+        vim.notify('The previous query is still running', vim.log.levels.WARN)
+        return
+      end
+      table.insert(previous, buf)
+    end
+  end
+  vim.cmd 'update' -- Save changes first
+  local file = vim.fn.expand '%:p'
+  local editor = vim.api.nvim_get_current_win()
+
+  -- Only remove output owned by this mapping, preserving other terminals.
+  for _, buf in ipairs(previous) do
+    for _, win in ipairs(vim.fn.win_findbuf(buf)) do
+      vim.api.nvim_win_close(win, true)
+    end
+    if vim.api.nvim_buf_is_valid(buf) then
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end
+  end
+
+  vim.cmd 'botright 15new'
+  vim.b.chq_output = true
+  local job = vim.fn.jobstart({
+    'zsh',
+    '-ic',
+    'chq "$1"',
+    'chq',
+    file,
+  }, { term = true })
+  if job <= 0 then
+    vim.notify('Could not start chq', vim.log.levels.ERROR)
+  end
+  vim.api.nvim_set_current_win(editor)
+end, { desc = 'Run current file with chq' })
