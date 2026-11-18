@@ -35,3 +35,10 @@ attachment/detachment. The full-config integration tests perform a real Lua
 language-server definition lookup and a real CMake configure/build in a temporary
 project (requires `make`, `cmake`, and a POSIX shell). Python/Go/LLDB debugger
 configuration is checked, but full debug sessions are not launched by the suite.
+
+Safety regressions additionally exercise repository-scoped drafts, submission
+snapshots, duplicate-submit guards, pending-review retry, stale callback rejection,
+explicit comment re-anchoring, failed note writes, paginated comments, Unicode LSP
+positions, revision-isolated real language servers and cleanup. SQL checks cover
+non-SQL completion bypass, mixed-case aliases, empty literal suggestions, shared
+linear tokenization, filename dialects, large-file guards and validator cancellation.

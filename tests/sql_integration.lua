@@ -67,6 +67,28 @@ assert(has(columns, 'customer_id') and has(columns, 'amount'), vim.inspect(colum
 assert(has(columns, '`properties.name`'), 'dotted ClickHouse column names must be quoted')
 assert(not client.server_capabilities.documentFormattingProvider, 'do not autoformat SQL with a generic formatter')
 
+-- The upstream server can return every catalog field even for one table.
+-- Only the active statement should determine the single-table filter.
+local scoped = {
+  'SELECT secret FROM other.private_table;',
+  '-- FROM other.private_table; should not affect completion',
+  "SELECT * FROM prod.payments WHERE customer_id = 'FROM other.private_table;' ORDER BY amount",
+}
+vim.api.nvim_buf_set_lines(buf, 0, -1, false, scoped)
+vim.bo[buf].modified = false
+local items = require('config.sql').completions({
+  bufnr = buf,
+  line = scoped[3],
+  cursor = { 3, #scoped[3] },
+}, {
+  { label = '.prod.payments.amount', insertText = 'amount', kind = 5, client_id = client.id },
+  { label = '.other.private_table.secret', insertText = 'secret', kind = 5, client_id = client.id },
+})
+assert(#items == 1 and items[1].insertText == 'amount', 'exclude fields outside active single-table scope')
+local selected = { label = 'payments', _sql_catalog_completion = true }
+local resolved = require('config.sql').completions({ bufnr = buf, line = 'SELECT * FROM prod.', cursor = { 1, 19 } }, { selected })
+assert(resolved[1] == selected, 'resolution must preserve the highlighted completion')
+
 -- The upstream grammar rejects ClickHouse DDL. Suppress only the catalog's
 -- diagnostics, not errors in query files.
 local catalog_buf, catalog_client = open(root .. '/schema.sql', ddl)

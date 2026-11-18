@@ -162,14 +162,28 @@ end
 function M.review_comments(root, number, callback, force)
   return request(
     root,
-    'review_comments',
+    'review_comment_pages',
     number,
-    { 'gh', 'api', '--paginate', ('repos/:owner/:repo/pulls/%s/comments'):format(number) },
+    { 'gh', 'api', '--paginate', '--slurp', ('repos/:owner/:repo/pulls/%s/comments'):format(number) },
     300,
     function(data)
-      return type(data) == 'table' and vim.islist(data)
+      if type(data) ~= 'table' or not vim.islist(data) then
+        return false
+      end
+      for _, page in ipairs(data) do
+        if type(page) ~= 'table' or not vim.islist(page) then
+          return false
+        end
+      end
+      return true
     end,
-    callback,
+    function(err, pages, cached)
+      local comments = {}
+      for _, page in ipairs(pages or {}) do
+        vim.list_extend(comments, page)
+      end
+      callback(err, err and nil or comments, cached)
+    end,
     force
   )
 end

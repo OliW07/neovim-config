@@ -88,6 +88,7 @@ return {
         },
       },
       spec = {
+        { '<leader>f', group = 'Find' },
         { '<leader>t', group = 'Toggle' },
         { '<leader>h', group = 'Git hunk', mode = { 'n', 'v' } },
         { '<leader>g', group = 'Git' },

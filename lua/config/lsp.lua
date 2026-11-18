@@ -24,6 +24,7 @@ function M.setup()
       map('gO', telescope 'lsp_document_symbols', 'Document symbols')
       map('gW', telescope 'lsp_dynamic_workspace_symbols', 'Workspace symbols')
       map('grt', telescope 'lsp_type_definitions', 'Type definition')
+      map('gK', vim.lsp.buf.hover, 'Hover documentation')
       local client = vim.lsp.get_client_by_id(event.data.client_id)
       if client and client:supports_method('textDocument/documentHighlight', buf) then
         -- Multiple servers on a buffer still need only one set of callbacks.
@@ -78,9 +79,11 @@ function M.setup()
       format = function(diagnostic)
         local msg = diagnostic.message:gsub('\n', ' ')
         local win = vim.fn.winwidth(0)
-        local line = vim.fn.virtcol('$') - 1
+        local line = vim.fn.virtcol '$' - 1
         local max = math.min(math.floor(win * 0.7), win - line) - 3
-        if max < 20 then max = 20 end
+        if max < 20 then
+          max = 20
+        end
         if #msg > max then
           msg = msg:sub(1, max - 1) .. '…'
         end

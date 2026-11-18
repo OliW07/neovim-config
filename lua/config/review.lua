@@ -17,6 +17,8 @@
 
 local M = {}
 local review_data = require 'config.review_data'
+local drafts = require 'config.review_drafts'
+local submitting = {}
 local open_generation = 0
 local cancel_open_summary
 
@@ -58,6 +60,14 @@ M.config = {
 
 -- The PR currently being reviewed, as returned by `gh pr list --json`.
 M.current = nil
+function M.reset()
+  open_generation = open_generation + 1
+  if cancel_open_summary then
+    cancel_open_summary()
+    cancel_open_summary = nil
+  end
+  M.current = nil
+end
 
 -- Scratch buffers we created for the current PR, wiped when we move on.
 M._scratch = {}
@@ -187,12 +197,37 @@ local function require_current()
 end
 
 --- owner/repo, from the configured remote.
-local function repo_slug()
-  local url = vim.fn.systemlist('git remote get-url ' .. M.config.remote)[1]
-  if not url then
-    return nil
+local function repo_slug(pr)
+  if pr and pr._repo then
+    return pr._repo.slug, pr._repo.host
   end
-  return url:match 'github%.com[:/](.-)%.git$' or url:match 'github%.com[:/](.+)$'
+  local root = pr and pr._root or git_root()
+  if not root then
+    return
+  end
+  local result = vim.fn.systemlist { 'git', '-C', root, 'remote', 'get-url', M.config.remote }
+  if vim.v.shell_error ~= 0 then
+    return
+  end
+  local url = result[1] or ''
+  local host, slug = url:match '^%w+://([^/]+)/(.+)$'
+  if host then
+    host = host:gsub('^.*@', ''):gsub(':%d+$', '')
+  end
+  if not host then
+    host, slug = url:match '^[^@]+@([^:]+):(.+)$'
+  end
+  if not host or not slug then
+    return
+  end
+  slug = slug:gsub('%.git$', ''):gsub('/$', '')
+  if not slug:match '^[^/]+/[^/]+$' then
+    return
+  end
+  if pr then
+    pr._repo = { host = host, slug = slug }
+  end
+  return slug, host
 end
 
 --- Recover a repo-relative path from a normal buffer or a diffview:// one.
@@ -268,15 +303,22 @@ local function jump_location(client, loc)
     return
   end
   local fname = vim.uri_to_fname(uri)
+  local function position()
+    local line = vim.api.nvim_buf_get_lines(0, range.start.line, range.start.line + 1, false)[1]
+    if not line then
+      return
+    end
+    local column = vim.str_byteindex(line, client.offset_encoding or 'utf-16', range.start.character, false)
+    vim.api.nvim_win_set_cursor(0, { range.start.line + 1, column })
+    vim.cmd 'normal! zz'
+  end
   local here = vim.api.nvim_get_current_buf()
   if vim.b[here].review_lsp_path == fname then
-    pcall(vim.api.nvim_win_set_cursor, 0, { range.start.line + 1, range.start.character })
-    vim.cmd 'normal! zz'
+    position()
     return
   end
   vim.cmd('tabedit ' .. vim.fn.fnameescape(fname))
-  pcall(vim.api.nvim_win_set_cursor, 0, { range.start.line + 1, range.start.character })
-  vim.cmd 'normal! zz'
+  position()
 end
 
 local function review_lsp_request(method, empty_msg)
@@ -289,6 +331,9 @@ local function review_lsp_request(method, empty_msg)
   local client = clients[1]
   local params = vim.lsp.util.make_position_params(0, client.offset_encoding)
   client:request(method, params, function(err, result)
+    if vim.api.nvim_get_current_buf() ~= bufnr then
+      return
+    end
     if err then
       notify(err.message or tostring(err), vim.log.levels.WARN)
       return
@@ -333,6 +378,26 @@ vim.api.nvim_create_autocmd('LspAttach', {
   end,
 })
 
+-- Each revision has its own server namespace. Retire it when its last diff
+-- buffer closes, so browsing many commits does not leave servers running.
+vim.api.nvim_create_autocmd('LspDetach', {
+  group = vim.api.nvim_create_augroup('pr-review-lsp-cleanup', { clear = true }),
+  callback = function(event)
+    local client = vim.lsp.get_client_by_id(event.data.client_id)
+    if not client or not client.config or not client.config._review_revision then
+      return
+    end
+    vim.schedule(function()
+      if next(client.attached_buffers) == nil then
+        client:stop()
+      end
+      if vim.api.nvim_buf_is_valid(event.buf) and #vim.lsp.get_clients { bufnr = event.buf } == 0 then
+        vim.b[event.buf].review_lsp_attempted = nil
+      end
+    end)
+  end,
+})
+
 function M.attach_diff_lsp(bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
   if not vim.api.nvim_buf_is_valid(bufnr) then
@@ -371,6 +436,11 @@ function M.attach_diff_lsp(bufnr)
   if not rel or not root then
     return
   end
+  local revision = prefix and name:sub(#prefix + 1):match '^([^/]+)/' or name:match '/%.git/([^/]+)/'
+  if not revision then
+    return
+  end
+  vim.b[bufnr].review_revision = revision
   local abs = root .. '/' .. rel
   vim.b[bufnr].review_lsp_path = abs
   patch_review_uris()
@@ -390,7 +460,9 @@ function M.attach_diff_lsp(bufnr)
       return
     end
     config.root_dir = project_root
-    vim.lsp.start(config, { bufnr = bufnr }) -- Default reuse matches name AND root.
+    config.name = config.name .. '@review:' .. vim.fn.sha256(root .. '\0' .. revision):sub(1, 12)
+    config._review_revision = revision
+    vim.lsp.start(config, { bufnr = bufnr })
   end
   for _, name_ in ipairs(enabled_lsp_names()) do
     if vim.lsp.is_enabled(name_) and not vim.tbl_contains(M.config.review_lsp_exclude, name_) then
@@ -464,38 +536,25 @@ end
 -- On-disk state: notes and the pending line-comment queue
 ---------------------------------------------------------------------------
 
-local function notes_path(number)
-  return ('%s/%d.md'):format(M.config.notes_dir, number)
+local function notes_path(pr)
+  return drafts.path(M.config.notes_dir, pr, '.md')
 end
 
-local function queue_path(number)
-  return ('%s/%d.comments.json'):format(M.config.notes_dir, number)
+local function queue_path(pr)
+  return drafts.path(M.config.notes_dir, pr, '.comments.json')
 end
 
-local function load_queue(number)
-  local path = queue_path(number)
-  if vim.fn.filereadable(path) == 0 then
-    return {}
-  end
-  local ok, data = pcall(vim.json.decode, table.concat(vim.fn.readfile(path), '\n'))
-  if ok and type(data) == 'table' then
-    return data
-  end
-  return {}
+local function load_queue(pr)
+  return drafts.read(queue_path(pr), {})
 end
 
-local function save_queue(number, queue)
-  vim.fn.mkdir(M.config.notes_dir, 'p')
-  if #queue == 0 then
-    vim.fn.delete(queue_path(number))
-    return
-  end
-  vim.fn.writefile({ vim.json.encode(queue) }, queue_path(number))
+local function save_queue(pr, queue)
+  drafts.write(queue_path(pr), queue)
 end
 
 --- Write the open gn buffer if it is this PR's notes file.
-local function flush_notes(number)
-  local path = vim.fn.fnamemodify(notes_path(number), ':p')
+local function flush_notes(pr)
+  local path = vim.fn.fnamemodify(notes_path(pr), ':p')
   local buf = vim.fn.bufnr(path)
   if buf ~= -1 and vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].modified then
     pcall(vim.api.nvim_buf_call, buf, function()
@@ -506,9 +565,9 @@ end
 
 --- Notes contents with the seeded <!-- --> header stripped. Prefers the live
 --- gn buffer so unsaved drafts still go out.
-local function notes_body(number)
-  flush_notes(number)
-  local path = vim.fn.fnamemodify(notes_path(number), ':p')
+local function notes_body(pr)
+  flush_notes(pr)
+  local path = vim.fn.fnamemodify(notes_path(pr), ':p')
   local buf = vim.fn.bufnr(path)
   local lines
   if buf ~= -1 and vim.api.nvim_buf_is_valid(buf) then
@@ -535,7 +594,17 @@ end
 --- DiffView:close() destroys its own file buffers and its tabpage, so this
 --- mostly has to make sure the view object goes with them; lib.is_buf_in_use
 --- guards the sweep for any diffview:// buffer that outlived its view.
-local function close_previous(number)
+local function close_previous(pr)
+  local notes = pr and vim.fn.bufnr(vim.fn.fnamemodify(notes_path(pr), ':p')) or -1
+  if notes ~= -1 and vim.api.nvim_buf_is_valid(notes) and vim.bo[notes].modified then
+    local ok, err = pcall(vim.api.nvim_buf_call, notes, function()
+      vim.cmd 'silent write'
+    end)
+    if not ok or vim.bo[notes].modified then
+      notify('Could not save review notes; keeping the review open: ' .. tostring(err or ''), vim.log.levels.ERROR)
+      return false
+    end
+  end
   local ok, lib = pcall(require, 'diffview.lib')
   if ok and lib.views then
     -- dispose_view mutates lib.views, so walk a copy.
@@ -573,24 +642,16 @@ local function close_previous(number)
     M._scratch[buf] = nil
   end
 
-  -- The notes buffer is a real file, so save it before letting it go.
-  if number then
-    local buf = vim.fn.bufnr(vim.fn.fnamemodify(notes_path(number), ':p'))
-    if buf ~= -1 and vim.api.nvim_buf_is_valid(buf) then
-      if vim.bo[buf].modified then
-        pcall(vim.api.nvim_buf_call, buf, function()
-          vim.cmd 'silent write'
-        end)
-      end
-      pcall(vim.api.nvim_buf_delete, buf, { force = true })
-    end
+  if notes ~= -1 and vim.api.nvim_buf_is_valid(notes) then
+    vim.api.nvim_buf_delete(notes, {})
   end
+  return true
 end
 
 -- Conversation thread + inline review comments. `gh pr view --json comments`
 -- is only the issue thread; line comments are a second request.
 local function load_summary(root, number, callback, force)
-  local summary, comments, summary_err
+  local summary, comments, summary_err, comments_err
   local left = 2
   local function done()
     left = left - 1
@@ -598,16 +659,18 @@ local function load_summary(root, number, callback, force)
       return
     end
     if summary then
+      summary._root = root
+      repo_slug(summary)
       summary.reviewComments = comments or {}
     end
-    callback(summary_err, summary)
+    callback(summary_err or comments_err, summary)
   end
   local cancel_summary = review_data.summary(root, number, function(err, data)
     summary_err, summary = err, data
     done()
   end, force)
-  local cancel_comments = review_data.review_comments(root, number, function(_, data)
-    comments = data
+  local cancel_comments = review_data.review_comments(root, number, function(err, data)
+    comments_err, comments = err, data
     done()
   end, force)
   return function()
@@ -634,6 +697,8 @@ function M.open(pr, opts)
   if cancel_open_summary then
     cancel_open_summary()
   end
+  pr._root = root
+  repo_slug(pr)
   local remote, base = M.config.remote, pr.baseRefName
   local ref = ('refs/pr/%d'):format(pr.number)
   local view, ready, summary, summary_error, shown
@@ -675,9 +740,12 @@ function M.open(pr, opts)
     pr.headRefOid, pr.baseRefOid = refs.head, refs.base
     M.last_open = { cached = cached, fetch_ms = (vim.uv.hrtime() - started) / 1e6 }
     if M.config.close_previous then
-      close_previous(M.current and M.current.number)
+      if not close_previous(M.current) then
+        return
+      end
     end
     pr._root = root
+    pr._commit = nil
     M.current = pr
     local ok, err = pcall(vim.cmd, ('DiffviewOpen -C=%s %s/%s...%s'):format(vim.fn.fnameescape(root), remote, base, ref))
     if not ok then
@@ -685,6 +753,9 @@ function M.open(pr, opts)
       return
     end
     view = require('diffview.lib').get_current_view()
+    if view then
+      view._review = { root = root, number = pr.number, commit = pr.headRefOid }
+    end
     if view and M.config.overview_on_open then
       view._pr_overview_pending = true
       local function loaded()
@@ -708,7 +779,13 @@ function M.open(pr, opts)
         loaded()
       end
     end
-    local pending = #load_queue(pr.number)
+    if
+      vim.fn.filereadable(('%s/%d.md'):format(M.config.notes_dir, pr.number)) == 1
+      or vim.fn.filereadable(('%s/%d.comments.json'):format(M.config.notes_dir, pr.number)) == 1
+    then
+      notify('Legacy drafts exist for #' .. pr.number .. '. If they belong to this repository, run :PRImportDraft.', vim.log.levels.WARN)
+    end
+    local pending = #load_queue(pr)
     if pending > 0 then
       notify(('%d comments still queued for #%d'):format(pending, pr.number))
     end
@@ -850,6 +927,8 @@ function M.show_picker(prs, base_filter, scope)
           end
           local cached = review_data.peek_summary(root, number)
           local initial = cached or vim.deepcopy(entry.value)
+          initial._root = root
+          repo_slug(initial)
           if initial.body == nil then
             initial.body = '_Loading description…_'
           end
@@ -1032,8 +1111,8 @@ function M.open_number(arg, opts)
   end
 end
 
---- Diff one commit against its parent. Line comments still queue against the
---- PR head -- go back to the full PR (<leader>grR) before submitting them.
+--- Diff one commit against its parent. Queued comments retain this revision;
+--- one submission may contain anchors from only one revision.
 function M.open_commit(commit)
   local pr = require_current()
   if not pr then
@@ -1050,25 +1129,40 @@ function M.open_commit(commit)
     return
   end
 
+  open_generation = open_generation + 1
+  local generation = open_generation
   local function show()
-    open_generation = open_generation + 1
+    if generation ~= open_generation then
+      return
+    end
     if cancel_open_summary then
       cancel_open_summary()
     end
-    close_previous(pr.number)
+    if not close_previous(M.current) then
+      return
+    end
     pr._commit = sha
     M.current = pr
-    local spec = ('%s~1..%s'):format(sha, sha)
+    local parents = vim.fn.systemlist { 'git', '-C', root, 'rev-list', '--parents', '-n', '1', sha }
+    local parent = (parents[1] or ''):match '^%x+ (%x+)' or '4b825dc642cb6eb9c060e54bf8b4c69280fdd7ec'
+    local spec = parent .. '..' .. sha
     local ok, err = pcall(vim.cmd, ('DiffviewOpen -C=%s %s'):format(vim.fn.fnameescape(root), spec))
     if not ok then
       notify('DiffviewOpen failed: ' .. tostring(err), vim.log.levels.ERROR)
       return
+    end
+    local view = require('diffview.lib').get_current_view()
+    if view then
+      view._review = { root = root, number = pr.number, commit = sha, commit_view = true }
     end
     local title = commit.messageHeadline or commit.message or sha:sub(1, 7)
     notify(('#%d %s  %s'):format(pr.number, sha:sub(1, 7), title))
   end
 
   run({ 'git', 'cat-file', '-e', sha .. '^{commit}' }, function(res)
+    if generation ~= open_generation then
+      return
+    end
     if res.code == 0 then
       show()
       return
@@ -1080,7 +1174,7 @@ function M.open_commit(commit)
       end
       show()
     end, true)
-  end)
+  end, { cwd = root })
 end
 
 --- Commits on the current PR. Select one to review just that commit's diff.
@@ -1096,7 +1190,7 @@ function M.commits()
   if not root then
     return
   end
-  notify('loading commits...')
+  notify 'loading commits...'
   review_data.commits(root, pr.number, function(err, data)
     if err then
       notify(err, vim.log.levels.ERROR)
@@ -1379,7 +1473,7 @@ function render_info(d)
       table.insert(events, { kind = 'line', t = iso_time(when), item = c })
     end
   end
-  for _, item in ipairs(load_queue(d.number) or {}) do
+  for _, item in ipairs(load_queue(d) or {}) do
     table.insert(events, { kind = 'queued', t = os.time(), item = item })
   end
   table.sort(events, function(a, b)
@@ -1495,7 +1589,7 @@ function M.browse()
     if res.code ~= 0 then
       notify('could not open the PR: ' .. (res.stderr or ''), vim.log.levels.ERROR)
     end
-  end)
+  end, { cwd = pr._root })
 end
 
 --- Is the cursor in one of the diff windows (rather than the file panel)?
@@ -1530,7 +1624,7 @@ function M.open_local()
     return
   end
 
-  local root = git_root()
+  local root = view.adapter.ctx.toplevel
   if not root then
     notify('not inside a git repo', vim.log.levels.WARN)
     return
@@ -1578,7 +1672,7 @@ function M.checks()
       text = res.stderr
     end
     scratch(('PR #%d checks'):format(pr.number), text)
-  end)
+  end, { cwd = pr._root })
 end
 
 ---------------------------------------------------------------------------
@@ -1604,6 +1698,11 @@ local function diff_location()
     return nil
   end
 
+  local pr = M.current
+  if not pr or not view._review or view._review.root ~= pr._root or view._review.number ~= pr.number then
+    notify('This diff does not belong to the current PR', vim.log.levels.WARN)
+    return nil
+  end
   local layout = view.cur_layout
   local win = vim.api.nvim_get_current_win()
   local side
@@ -1616,17 +1715,19 @@ local function diff_location()
     return nil
   end
 
+  if side == 'LEFT' and view._review.commit_view then
+    notify('This side uses the commit parent. Open the full PR diff to anchor a base-side review comment.', vim.log.levels.WARN)
+    return nil
+  end
   local entry = view.cur_entry
   local path = entry.path
-  if side == 'LEFT' and entry.oldpath and entry.oldpath ~= '' then
-    path = entry.oldpath
-  end
+  -- GitHub addresses renamed files by their current diff path on both sides.
   if not path or path == '' then
     notify('could not work out which file this is', vim.log.levels.WARN)
     return nil
   end
 
-  return { path = path, side = side }
+  return { path = path, side = side, commit_id = view._review.commit, commit_view = view._review.commit_view }
 end
 
 local function add_comment(pr, loc, first, last, body)
@@ -1636,14 +1737,22 @@ local function add_comment(pr, loc, first, last, body)
     return
   end
 
-  local queue = load_queue(pr.number)
-  local item = { path = loc.path, side = loc.side, line = last, body = body }
+  local queue = load_queue(pr)
+  local item = {
+    id = vim.fn.sha256(tostring(vim.uv.hrtime()) .. ':' .. vim.fn.getpid()),
+    path = loc.path,
+    side = loc.side,
+    line = last,
+    body = body,
+    commit_id = loc.commit_id,
+    commit_view = loc.commit_view,
+  }
   if last > first then
     item.start_line = first
     item.start_side = loc.side
   end
   table.insert(queue, item)
-  save_queue(pr.number, queue)
+  save_queue(pr, queue)
 
   local where = loc.path .. ':' .. (last > first and ('%d-%d'):format(first, last) or tostring(last))
   notify(('queued (%d pending) %s'):format(#queue, where))
@@ -1717,7 +1826,7 @@ function M.queued()
   if not pr then
     return
   end
-  local queue = load_queue(pr.number)
+  local queue = load_queue(pr)
   if #queue == 0 then
     notify('no queued comments for #' .. pr.number)
     return
@@ -1738,14 +1847,14 @@ function M.unqueue(index)
   if not pr then
     return
   end
-  local queue = load_queue(pr.number)
+  local queue = load_queue(pr)
   index = tonumber(index)
   if not index or not queue[index] then
     notify('no queued comment ' .. tostring(index), vim.log.levels.WARN)
     return
   end
   local removed = table.remove(queue, index)
-  save_queue(pr.number, queue)
+  save_queue(pr, queue)
   notify(('dropped comment on %s:%d (%d left)'):format(removed.path, removed.line, #queue))
 end
 
@@ -1754,7 +1863,7 @@ function M.clear_queue()
   if not pr then
     return
   end
-  local queue = load_queue(pr.number)
+  local queue = load_queue(pr)
   if #queue == 0 then
     notify 'queue already empty'
     return
@@ -1762,7 +1871,7 @@ function M.clear_queue()
   if vim.fn.confirm(('Discard %d queued comments on #%d?'):format(#queue, pr.number), '&Yes\n&No', 2) ~= 1 then
     return
   end
-  save_queue(pr.number, {})
+  save_queue(pr, {})
   notify 'queue cleared'
 end
 
@@ -1776,8 +1885,8 @@ function M.notes()
   if not pr then
     return
   end
-  vim.fn.mkdir(M.config.notes_dir, 'p')
-  local path = notes_path(pr.number)
+  local path = notes_path(pr)
+  vim.fn.mkdir(vim.fs.dirname(path), 'p', '0700')
   local fresh = vim.fn.filereadable(path) == 0
   vim.cmd('botright vsplit ' .. vim.fn.fnameescape(path))
   if fresh then
@@ -1816,88 +1925,117 @@ local EVENTS = {
   request = { event = 'REQUEST_CHANGES', label = 'REQUEST CHANGES' },
 }
 
-local function api_post(endpoint, payload, on_done)
-  run({ 'gh', 'api', '--method', 'POST', endpoint, '--input', '-' }, on_done, {
+local function api_post(pr, endpoint, payload, on_done)
+  run({ 'gh', 'api', '--hostname', pr._repo.host, '--method', 'POST', endpoint, '--input', '-' }, on_done, {
+    cwd = pr._root,
     stdin = vim.json.encode(payload),
   })
 end
 
---- Submit the summary and every queued line comment as one review.
---- opts.skip_confirm / opts.on_done are for close-PR, which already confirmed.
+-- A submission owns a snapshot. Later comments stay queued, and failed pending
+-- reviews retain their server ID so retrying cannot create a duplicate review.
 local function submit_review(pr, kind, opts)
   opts = opts or {}
   local ev = EVENTS[kind]
   if not ev then
-    notify('unknown review type: ' .. tostring(kind), vim.log.levels.ERROR)
-    return
+    return notify('Unknown review type: ' .. tostring(kind), vim.log.levels.ERROR)
   end
   if not have_gh() then
     return
   end
-
-  local slug = repo_slug()
+  local slug = repo_slug(pr)
   if not slug then
-    notify('could not read the ' .. M.config.remote .. ' remote', vim.log.levels.ERROR)
-    return
+    return notify('Could not resolve the review repository', vim.log.levels.ERROR)
   end
-
-  vim.cmd 'silent! wall'
-  local body = notes_body(pr.number)
-  local queue = load_queue(pr.number)
-
-  -- A verdict needs something behind it, but line comments count -- an empty
-  -- summary is fine when you have already said it inline.
-  if body == '' and #queue == 0 and ev.event ~= 'APPROVE' then
-    notify(ev.label .. ' needs a summary (<leader>grn) or at least one line comment', vim.log.levels.WARN)
-    return
+  local path = queue_path(pr)
+  if submitting[path] then
+    return notify('This review is already being submitted', vim.log.levels.WARN)
   end
-  local payload = { commit_id = pr.headRefOid }
-  if body ~= '' then
-    payload.body = body
+  local body, queue = notes_body(pr), load_queue(pr)
+  local pending_path = drafts.path(M.config.notes_dir, pr, '.pending.json')
+  local pending = drafts.read(pending_path, {})
+  local snapshot = pending.comments or queue
+  if not pending.id and body == '' and #queue == 0 and ev.event ~= 'APPROVE' then
+    return notify(ev.label .. ' needs notes or a line comment', vim.log.levels.WARN)
   end
-  if #queue > 0 then
-    payload.comments = queue
-  end
-
-  if not opts.skip_confirm then
-    local prompt
-    if #queue == 0 and body == '' then
-      prompt = ('%s #%d with no comments?'):format(ev.label, pr.number)
-    else
-      prompt = ('%s on #%d with %d line comment(s)?'):format(ev.label, pr.number, #queue)
-    end
-    if vim.fn.confirm(prompt, '&Yes\n&No', 2) ~= 1 then
-      return
+  local revision = pr.headRefOid
+  if not pending.id and #queue > 0 then
+    revision = queue[1].commit_id
+    for _, item in ipairs(queue) do
+      if
+        not item.id
+        or not item.commit_id
+        or item.commit_id ~= revision
+        or (item.commit_view and item.side == 'LEFT')
+        or (not item.commit_view and item.commit_id ~= pr.headRefOid)
+      then
+        return notify(
+          'Queued anchors are stale or span revisions. Use :PRReanchor <n> on the correct diff line or remove them before submitting.',
+          vim.log.levels.WARN
+        )
+      end
     end
   end
-
+  if
+    not opts.skip_confirm
+    and vim.fn.confirm(
+        ('%s %s #%d with %d line comment(s)%s?'):format(ev.label, slug, pr.number, #snapshot, pending.id and ' (resume pending review)' or ''),
+        '&Yes\n&No',
+        2
+      )
+      ~= 1
+  then
+    return
+  end
+  submitting[path] = true
+  local endpoint = ('repos/%s/pulls/%d/reviews'):format(slug, pr.number)
+  local function failed(res)
+    submitting[path] = nil
+    notify('Review submission failed; drafts preserved: ' .. (res.stderr ~= '' and res.stderr or res.stdout or ''), vim.log.levels.ERROR)
+  end
   local function finished()
-    save_queue(pr.number, {})
+    submitting[path] = nil
+    local ok, err = pcall(drafts.acknowledge, path, snapshot)
+    if not ok then
+      return notify('Review was submitted, but local cleanup failed. Do not resubmit: ' .. tostring(err), vim.log.levels.ERROR)
+    end
+    vim.fn.delete(pending_path)
     if ev.event == 'APPROVE' then
       forget_listed(pr)
     end
-    notify(('#%d submitted (%s, %d line comments)'):format(pr.number, ev.label, #queue))
+    notify(('%s #%d submitted (%s, %d line comments)'):format(slug, pr.number, ev.label, #snapshot))
     if opts.on_done then
       opts.on_done()
     end
   end
-
-  local function failed(res, what)
-    local err = res.stderr
-    if err == nil or err == '' then
-      err = res.stdout
-    end
-    -- The usual cause is a comment anchored to a line outside the diff.
-    notify((what or 'review failed: ') .. (err or ''), vim.log.levels.ERROR)
+  local function send_pending(id)
+    api_post(pr, ('%s/%s/events'):format(endpoint, id), { event = ev.event, body = body }, function(res)
+      if res.code ~= 0 then
+        return failed(res)
+      end
+      finished()
+    end)
   end
-
-  local reviews_endpoint = ('repos/%s/pulls/%d/reviews'):format(slug, pr.number)
-
-  -- With a summary (or when approving, where the body is optional) the review
-  -- goes out in one request.
+  if pending.id then
+    return send_pending(pending.id)
+  end
+  local payload = { commit_id = revision }
+  if body ~= '' then
+    payload.body = body
+  end
+  if #queue > 0 then
+    payload.comments = {}
+    for _, item in ipairs(queue) do
+      local comment = {}
+      for _, key in ipairs { 'path', 'side', 'line', 'body', 'start_line', 'start_side' } do
+        comment[key] = item[key]
+      end
+      payload.comments[#payload.comments + 1] = comment
+    end
+  end
   if body ~= '' or ev.event == 'APPROVE' then
     payload.event = ev.event
-    api_post(reviews_endpoint, payload, function(res)
+    api_post(pr, endpoint, payload, function(res)
       if res.code ~= 0 then
         return failed(res)
       end
@@ -1905,29 +2043,21 @@ local function submit_review(pr, kind, opts)
     end)
     return
   end
-
-  -- No summary: POST without an event, which creates a PENDING review and has
-  -- no body requirement, then submit that review, where the body is optional.
-  -- This is the same two-step the web UI performs.
-  api_post(reviews_endpoint, payload, function(res)
+  api_post(pr, endpoint, payload, function(res)
     if res.code ~= 0 then
       return failed(res)
     end
-
     local ok, review = pcall(vim.json.decode, res.stdout)
     if not ok or type(review) ~= 'table' or not review.id then
-      notify('could not read the pending review id from gh', vim.log.levels.ERROR)
-      return
+      submitting[path] = nil
+      return notify('A pending review was created but its ID could not be read; check GitHub before retrying.', vim.log.levels.ERROR)
     end
-
-    api_post(('%s/%d/events'):format(reviews_endpoint, review.id), { event = ev.event }, function(res2)
-      if res2.code ~= 0 then
-        -- The comments are on GitHub as a pending review; only the verdict failed.
-        save_queue(pr.number, {})
-        return failed(res2, 'comments posted as a pending review, but submitting failed: ')
-      end
-      finished()
-    end)
+    local saved, err = pcall(drafts.write, pending_path, { id = review.id, comments = snapshot })
+    if not saved then
+      submitting[path] = nil
+      return notify('Pending review ' .. review.id .. ' exists on GitHub, but saving its ID failed: ' .. tostring(err), vim.log.levels.ERROR)
+    end
+    send_pending(review.id)
   end)
 end
 
@@ -1949,27 +2079,32 @@ function M.close_pr()
     return
   end
 
-  vim.cmd 'silent! wall'
-  local body = notes_body(pr.number)
-  local queue = load_queue(pr.number)
+  local slug = repo_slug(pr)
+  if not slug then
+    return notify('Could not resolve the review repository', vim.log.levels.ERROR)
+  end
+  local generation = open_generation
+  local body = notes_body(pr)
+  local queue = load_queue(pr)
 
   local prompt
   if body ~= '' or #queue > 0 then
-    prompt = ('Close #%d on GitHub, sending gn notes and %d line comment(s)?'):format(pr.number, #queue)
+    prompt = ('Close %s #%d on GitHub, sending notes and %d line comment(s)?'):format(slug, pr.number, #queue)
   else
-    prompt = ('Close #%d on GitHub with no comment?'):format(pr.number)
+    prompt = ('Close %s #%d on GitHub with no comment?'):format(slug, pr.number)
   end
   if vim.fn.confirm(prompt, '&Yes\n&No', 2) ~= 1 then
     return
   end
 
   local function tear_down()
-    close_previous(pr.number)
-    M.current = nil
+    if generation == open_generation and M.current == pr and close_previous(pr) then
+      M.reset()
+    end
   end
 
   local function do_close()
-    local cmd = { 'gh', 'pr', 'close', tostring(pr.number) }
+    local cmd = { 'gh', 'pr', 'close', tostring(pr.number), '--repo', pr._repo.host .. '/' .. slug }
     -- Line comments already went out as a review (with the notes as its body).
     -- Notes-only uses --comment so the close reason is on the issue thread.
     if body ~= '' and #queue == 0 then
@@ -1988,7 +2123,7 @@ function M.close_pr()
       notify(('#%d closed'):format(pr.number))
       forget_listed(pr)
       tear_down()
-    end)
+    end, { cwd = pr._root })
   end
 
   if #queue > 0 then
@@ -2003,37 +2138,89 @@ end
 ---------------------------------------------------------------------------
 
 function M.permalink()
-  local slug = repo_slug()
+  local path = vim.b.review_lsp_path or vim.api.nvim_buf_get_name(0)
+  local root = vim.fs.root(path, '.git')
+  if not root then
+    return notify('Not inside a Git repository', vim.log.levels.WARN)
+  end
+  local context = { _root = root }
+  local slug, host = repo_slug(context)
   if not slug then
-    notify('could not read the ' .. M.config.remote .. ' remote', vim.log.levels.ERROR)
-    return
+    return notify('Could not resolve repository', vim.log.levels.ERROR)
   end
-  local rel = repo_relative(vim.fn.expand '%:p')
-  if not rel then
-    notify("could not work out this file's path in the repo", vim.log.levels.WARN)
-    return
-  end
-
-  local sha = M.current and M.current.headRefOid
+  local rel = vim.fs.relpath(root, path)
+  local sha = vim.b.review_revision
   if not sha then
-    local head = vim.fn.systemlist 'git rev-parse HEAD'
-    sha = head and head[1]
+    sha = vim.fn.systemlist({ 'git', '-C', root, 'rev-parse', 'HEAD' })[1]
+    if vim.v.shell_error ~= 0 then
+      return notify('Could not resolve HEAD', vim.log.levels.ERROR)
+    end
   end
-  if not sha or sha == '' then
-    notify('could not resolve a commit to link to', vim.log.levels.WARN)
-    return
-  end
-
   local first, last = cursor_range()
-  local anchor = ('#L%d'):format(first)
-  if last > first then
-    anchor = anchor .. ('-L%d'):format(last)
-  end
-
-  local url = ('https://github.com/%s/blob/%s/%s%s'):format(slug, sha, rel, anchor)
+  local anchor = '#L' .. first .. (last > first and ('-L' .. last) or '')
+  rel = rel:gsub('[^%w%-%._~/]', function(c)
+    return ('%%%02X'):format(c:byte())
+  end)
+  local url = ('https://%s/%s/blob/%s/%s%s'):format(host, slug, sha, rel, anchor)
   vim.fn.setreg('+', url)
   notify(url)
 end
+
+function M.import_draft()
+  local pr = require_current()
+  if not pr then
+    return
+  end
+  local slug = repo_slug(pr) or pr._root
+  if vim.fn.confirm('Import legacy number-only draft #' .. pr.number .. ' into ' .. slug .. '?', '&Yes\n&No', 2) ~= 1 then
+    return
+  end
+  for _, suffix in ipairs { '.md', '.comments.json' } do
+    local old = ('%s/%d%s'):format(M.config.notes_dir, pr.number, suffix)
+    local target = drafts.path(M.config.notes_dir, pr, suffix)
+    if vim.fn.filereadable(old) == 1 then
+      if vim.fn.filereadable(target) == 1 then
+        notify('Existing draft preserved; import skipped: ' .. target, vim.log.levels.WARN)
+      else
+        vim.fn.mkdir(vim.fs.dirname(target), 'p', '0700')
+        assert(vim.uv.fs_rename(old, target))
+      end
+    end
+  end
+  notify 'Imported legacy draft. Re-anchor imported line comments with :PRReanchor <n> before submitting.'
+end
+
+function M.reanchor(index)
+  local pr = require_current()
+  if not pr then
+    return
+  end
+  local loc = diff_location()
+  if not loc then
+    return
+  end
+  local queue = load_queue(pr)
+  local item = queue[tonumber(index)]
+  if not item then
+    return notify('No queued comment ' .. tostring(index), vim.log.levels.WARN)
+  end
+  local first, last = cursor_range()
+  item.path, item.side, item.line = loc.path, loc.side, last
+  item.start_line, item.start_side = nil, nil
+  if last > first then
+    item.start_line, item.start_side = first, loc.side
+  end
+  item.commit_id, item.commit_view = loc.commit_id, loc.commit_view
+  -- Re-anchoring during a submission creates a new unsent version.
+  item.id = vim.fn.sha256(tostring(vim.uv.hrtime()) .. ':' .. vim.fn.getpid())
+  save_queue(pr, queue)
+  notify('Updated anchor for comment ' .. index)
+end
+
+vim.api.nvim_create_user_command('PRImportDraft', M.import_draft, { desc = 'Import legacy drafts into this repository' })
+vim.api.nvim_create_user_command('PRReanchor', function(opts)
+  M.reanchor(opts.args)
+end, { nargs = 1, desc = 'Move a queued comment to the current diff line' })
 
 ---------------------------------------------------------------------------
 -- Keymaps

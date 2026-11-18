@@ -6,8 +6,19 @@ assert(vim.fn.maparg('<F5>', 'n', false, true).desc == f5, 'CMake must not overw
 local dap = require 'dap'
 assert(dap.adapters.python and dap.configurations.python and dap.configurations.go, 'missing LLDB must not disable Python/Go')
 assert(require('mason-nvim-dap.settings').current.automatic_installation == false)
+local go_root = vim.fn.tempname()
+vim.fn.mkdir(go_root .. '/cmd/demo', 'p')
+vim.fn.writefile({ 'module example.invalid/audit' }, go_root .. '/go.mod')
+dap.adapters.go(function(adapter)
+  assert(adapter.executable.cwd == go_root, 'Delve must build in the target module even when editor cwd differs')
+end, { program = go_root .. '/cmd/demo', cwd = go_root .. '/cmd/demo' })
+vim.fn.delete(go_root, 'rf')
 assert(vim.fn.maparg('<space>c', 'n') == '', 'CMake prefix must not also be a change operator')
 assert(vim.fn.maparg('<space>b', 'n') == '', 'buffer prefix must not also toggle breakpoints')
+assert(vim.fn.maparg('<space>f', 'n') == '', 'search prefix must not also trigger formatting')
+assert(vim.fn.maparg('<space>cf', 'n', false, true).desc == 'Format buffer')
+assert(vim.fn.maparg('<space>ff', 'n', false, true).desc == 'Find files in current directory')
+assert(vim.fn.maparg('<space>fF', 'n', false, true).desc == 'Find files in working directory')
 assert(vim.fn.maparg('<space>Y', 'n', false, true).desc == 'Yank absolute file path')
 assert(not package.loaded.conform, 'formatting must not load before first use/save')
 assert(not package.loaded['telescope.builtin'], 'Telescope must not load on startup')
@@ -49,8 +60,8 @@ vim.lsp.get_client_by_id, vim.lsp.get_clients = original_get, original_clients
 for _, spec in ipairs(require 'plugins.lsp') do
   if spec[1] == 'stevearc/conform.nvim' then
     local opts = spec.opts()
-    assert(opts.formatters_by_ft.go[1] == 'goimports')
-    assert(opts.formatters_by_ft.python[1] == 'ruff_fix')
+    assert(vim.deep_equal(opts.formatters_by_ft.go, { 'gofumpt' }))
+    assert(vim.deep_equal(opts.formatters_by_ft.python, { 'ruff_format' }))
     local scratch = vim.api.nvim_create_buf(false, true)
     assert(opts.format_on_save(scratch) == nil, 'scratch buffers must not format on save')
   end

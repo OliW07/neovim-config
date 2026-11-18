@@ -13,8 +13,11 @@ installs are explicit so normal startup does not launch tool downloads.
 
 C/C++ debugging additionally needs an LLVM `lldb-dap` executable. The config looks
 on PATH and in common macOS LLVM locations. Missing LLDB does not prevent Python
-or Go debugging. Python uses the active virtual environment, a project's `.venv`
-or `venv`, then Python on PATH. Flutter's Dart is preferred when available.
+or Go debugging. Install C/C++ linting separately with `brew install cppcheck`.
+Rust needs a rustup toolchain with `rust-analyzer`, `rustfmt`, and `clippy`;
+Mason's server alone cannot analyze Rust without Cargo and rustc. Python uses the active virtual environment, a project's `.venv`
+or `venv`, then Python on PATH. Go debugging starts Delve in the target Go module
+even when Neovim was opened elsewhere. Flutter's Dart is preferred when available.
 
 ## SQL with a local schema
 
@@ -36,9 +39,16 @@ Saving `schema.sql` reloads completion metadata. After external edits, run
 in Insert mode for completion. Missing schemas leave keyword completion available;
 invalid schemas produce an error and clear stale completion metadata. Schema
 inference and advanced alias resolution are limited by the upstream server.
-Generic server syntax diagnostics are suppressed only for the root `schema.sql`:
-its grammar rejects valid ClickHouse DDL. The SQLGlot metadata loader still reports
-schema-load errors; query-file diagnostics remain enabled.
+Query syntax diagnostics use the local SQLGlot parser and the selected filename
+dialect (ClickHouse, PostgreSQL, MySQL or Hive). Redis uses the upstream server.
+The root `schema.sql` is validated separately by the metadata loader. Validation
+cancels obsolete requests and skips large buffers.
+
+ClickHouse completion also includes offline functions, signatures, local aliases
+and CTE columns. Optional `sql-values.json` next to `schema.sql` supplies observed
+string values without network requests. The bundled `data/` vocabulary files,
+`scripts/`, `lua/config/sql*.lua` and `lazy-lock.json` belong in version control.
+The existing SQL query/output workflow remains available under `<leader>k`.
 
 ## Keys
 
@@ -49,10 +59,10 @@ Leader is **Space**. Which-key shows groups as you type.
   `fr` resume, `fc` themes.
 - Buffers/debug: `bd` close buffer, `bb` toggle breakpoint, `bB` conditional breakpoint;
   F5 continues/starts debugging, F1/F2/F3 step, F7 toggles the debugger UI.
-- Editing: `w` save, `f` format buffer, `y` yank to clipboard, `Y` copy file path,
+- Editing: `w` save, `cf` format buffer, `y` yank to clipboard, `Y` copy file path,
   `p` paste from clipboard, `d`/`D` delete without yanking, `xc` change without yanking.
-- Diagnostics: `q` current-buffer location list, `Q` workspace quickfix list.
-  `dd` removes an entry from whichever list is open.
+- Diagnostics: `q` current-buffer location list, `Q` diagnostic float, `xq` workspace quickfix list.
+  `dd` removes an entry from whichever list is open. `gK` (without Leader) shows LSP hover; `K` moves to the window above.
 - Git: `gs` status, `gl` log, `gc` commit, `gp` pull, `gP` push, `gF` fetch,
   `gb` blame, `gS` show the line's commit. `hs`/`hr` stage/reset hunks.
 - Make: `mb` build, `mr` build/run, `md` build/debug. Executable choices are remembered
@@ -66,8 +76,24 @@ Leader is **Space**. Which-key shows groups as you type.
   cursor or uses normal go-to-file behaviour.
 
 The previous `b`/`B`, `yp`, and `c` mappings moved to `bb`/`bB`, `Y`, and `xc` so
-an operator/action no longer doubles as a longer mapping's prefix.
+an operator/action no longer doubles as a longer mapping's prefix. Formatting
+uses `cf` so `f` is exclusively the search prefix.
 
+
+## PR review drafts
+
+Review keys live under `<leader>gr`. Notes and queued comments are stored per
+repository and PR, so changing cwd or reviewing the same number in another
+repository cannot mix drafts. Submissions keep newly queued comments and resume
+a pending review after a failed final submission.
+
+Old numbered drafts are preserved. Open the correct PR and run `:PRImportDraft`
+to explicitly assign one to that repository. Use `:PRReanchor <n>` on the intended
+diff line (or selection) to update an imported/stale queued comment. Comments
+from different revisions must be re-anchored to one revision before submission.
+Commit views retain their exact revision for right-side comments; left-side
+comments must be anchored in the full PR diff because its base is different.
+Navigation servers are isolated per revision and stop when no longer in use.
 
 ## Performance and project behaviour
 

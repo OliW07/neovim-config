@@ -102,6 +102,18 @@ function M.setup()
     ui.open()
   end
   require('dap-go').setup { delve = { detached = vim.fn.has 'win32' == 0 } }
+  local go_adapter = dap.adapters.go
+  dap.adapters.go = function(callback, config)
+    go_adapter(function(adapter)
+      adapter = vim.deepcopy(adapter)
+      if adapter.executable then
+        -- Delve builds in its own cwd; launch.cwd only sets the debuggee cwd.
+        local program = type(config.program) == 'string' and config.program or vim.api.nvim_buf_get_name(0)
+        adapter.executable.cwd = vim.fs.root(program, 'go.mod') or config.cwd or vim.fn.getcwd()
+      end
+      callback(adapter)
+    end, config)
+  end
 end
 
 return M

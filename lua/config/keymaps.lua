@@ -3,6 +3,7 @@ vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open buffe
 vim.keymap.set('n', '<leader>Q', function()
   vim.diagnostic.open_float { border = 'rounded', source = 'if_many' }
 end, { desc = 'Show diagnostic float' })
+vim.keymap.set('n', '<leader>xq', vim.diagnostic.setqflist, { desc = 'Open workspace diagnostic quickfix list' })
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
 
 vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to left window' })
@@ -41,6 +42,7 @@ end, { desc = 'Yank absolute file path' })
 vim.keymap.set({ 'n', 'x' }, '<leader>p', '"+p', { desc = 'Paste from system clipboard' })
 vim.keymap.set('n', '<leader>d', '"_d', { desc = 'Delete without yank' })
 vim.keymap.set('n', '<leader>D', '"_D', { desc = 'Delete line without yank' })
+vim.keymap.set({ 'n', 'x' }, '<leader>xc', '"_c', { desc = 'Change without yank' })
 
 vim.keymap.set('n', 'gp', '`[v`]', { desc = 'Select last pasted' })
 
@@ -136,7 +138,7 @@ local function quit_most(bang)
   pcall(vim.cmd.DiffviewClose)
   local ok_review, review = pcall(require, 'config.review')
   if ok_review then
-    review.current = nil
+    review.reset()
   end
 
   for _, win in ipairs(vim.api.nvim_list_wins()) do
@@ -202,18 +204,7 @@ vim.keymap.set('n', '<leader>kq', function()
   local file = vim.fn.expand '%:p'
   local editor = vim.api.nvim_get_current_win()
 
-  -- Only remove output owned by this mapping, preserving other terminals.
-  for _, buf in ipairs(previous) do
-    for _, win in ipairs(vim.fn.win_findbuf(buf)) do
-      vim.api.nvim_win_close(win, true)
-    end
-    if vim.api.nvim_buf_is_valid(buf) then
-      vim.api.nvim_buf_delete(buf, { force = true })
-    end
-  end
-
-  vim.cmd 'botright 15new'
-  vim.b.chq_output = true
+  require('config.sql_output').open(previous)
   local job = vim.fn.jobstart({
     'zsh',
     '-ic',

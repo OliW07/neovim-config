@@ -8,13 +8,13 @@ config = Path(__file__).resolve().parents[1]
 
 def run(args, cwd=config, env=None):
     result = subprocess.run(args, cwd=cwd, env=env, text=True, capture_output=True, timeout=30)
-    if result.returncode:
+    if result.returncode or 'Error in command line' in result.stderr:
         raise RuntimeError(result.stdout + result.stderr)
     return result.stdout + result.stderr
 
-for test in ['projects.lua', 'lint.lua', 'editor_tasks.lua', 'review_data.lua', 'review_lsp.lua', 'review_lsp_navigation.lua']:
+for test in ['sql_diagnostics.lua', 'sql_safety.lua', 'projects.lua', 'lint.lua', 'editor_tasks.lua', 'review_data.lua', 'review_safety.lua', 'review_lsp.lua', 'review_lsp_navigation.lua']:
     print(run(['nvim', '--headless', '-u', 'NONE', '-i', 'NONE', '-l', 'tests/' + test]).strip())
-for test in ['config_smoke.lua', 'lsp_integration.lua', 'cmake_integration.lua', 'sql_integration.lua']:
+for test in ['config_smoke.lua', 'lsp_integration.lua', 'cmake_integration.lua', 'sql_integration.lua', 'sql_words.lua', 'sql_values.lua', 'sql_scope.lua', 'sql_words_blink.lua', 'sql_cte_blink.lua', 'sql_signature_blink.lua']:
     command = f'lua local ok,err=pcall(dofile,"tests/{test}"); if not ok then print(err); vim.cmd("cquit 1") end'
     print(run(['nvim', '--headless', '-i', 'NONE', '-c', command]).strip())
 with tempfile.TemporaryDirectory(prefix='nvim-review-test-') as folder:

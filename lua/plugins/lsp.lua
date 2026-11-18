@@ -28,7 +28,7 @@ return {
     cmd = { 'ConformInfo' },
     keys = {
       {
-        '<leader>f',
+        '<leader>cf',
         function()
           require('conform').format { async = true, lsp_format = 'fallback' }
         end,
@@ -50,7 +50,7 @@ return {
           c = { lsp = 'clangd' },
           cpp = { lsp = 'clangd' },
           lua = { 'stylua' },
-          python = { 'ruff_fix', 'ruff_format' },
+          python = { 'ruff_format' },
           javascript = js,
           javascriptreact = js,
           typescript = js,
@@ -61,7 +61,7 @@ return {
           css = { 'prettier' },
           rust = { 'rustfmt' },
           dart = { 'dart_format' },
-          go = { 'goimports', 'gofumpt' },
+          go = { 'gofumpt' },
         },
       }
     end,
@@ -77,10 +77,18 @@ return {
     opts = {
       keymap = { preset = 'default' },
       appearance = { nerd_font_variant = 'mono' },
-      completion = { documentation = { auto_show = false, auto_show_delay_ms = 500 } },
+      completion = {
+        documentation = { auto_show = false, auto_show_delay_ms = 500 },
+        trigger = {
+          show_on_blocked_trigger_characters = function()
+            return vim.bo.filetype == 'sql' and { '\n', '\t' } or { ' ', '\n', '\t' }
+          end,
+        },
+      },
       sources = {
-        default = { 'lsp', 'path', 'lazydev' },
+        default = { 'lsp', 'path', 'lazydev', 'sql_words' },
         providers = {
+          sql_words = { name = 'SQL', module = 'config.sql_words' },
           lazydev = { module = 'lazydev.integrations.blink', score_offset = 100 },
           lsp = {
             transform_items = function(ctx, items)

@@ -44,7 +44,7 @@ end
 local first = buffer 'example.tsx'
 review.attach_diff_lsp(first)
 review.attach_diff_lsp(first)
-assert(#starts == 1 and starts[1].name == 'review_test', 'only navigation server, once')
+assert(#starts == 1 and starts[1].name:match '^review_test@review:', 'only isolated navigation server, once')
 assert(starts[1].root == root .. '/package', 'honour package root callback: ' .. vim.inspect { starts = starts, root = root, resolved = resolved })
 assert(resolved[1] == root .. '/package/example.tsx', 'worktree URI must resolve to real path')
 assert(vim.uri_from_bufnr(first) == vim.uri_from_fname(resolved[1]), 'LSP uses review path')

@@ -65,7 +65,8 @@ local function package_biome_config(bufnr)
     path = vim.fs.dirname(filename),
     type = 'file',
     upward = true,
-    stop = project_root,
+    -- find() excludes the stop directory; include the project root itself.
+    stop = vim.fs.dirname(project_root),
     limit = 1,
   })[1]
 

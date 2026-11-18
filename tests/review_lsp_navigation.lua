@@ -21,7 +21,7 @@ vim.api.nvim_buf_set_name(buf, 'diffview://' .. root .. '/.git/abcdef/example.lu
 vim.bo[buf].buftype = 'nowrite'
 vim.bo[buf].filetype = 'lua'
 vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
-  'local function greet() return 1 end',
+  "local label = 'é'; local function greet() return 1 end",
   'local value = greet()',
   'return value',
 })
@@ -51,6 +51,44 @@ assert(
   'gd must resolve definition from PR contents'
 )
 assert(vim.api.nvim_get_current_buf() == buf, 'same-file definition should stay in review blob')
+assert(vim.api.nvim_win_get_cursor(0)[2] == #"local label = 'é'; local function ", 'definition uses byte columns after Unicode')
+local base_client = vim.lsp.get_clients({ bufnr = buf })[1]
+local head = vim.api.nvim_create_buf(false, true)
+vim.api.nvim_buf_set_name(head, 'diffview://' .. root .. '/.git/123456/example.lua')
+vim.bo[head].buftype = 'nowrite'
+vim.bo[head].filetype = 'lua'
+vim.api.nvim_buf_set_lines(
+  head,
+  0,
+  -1,
+  false,
+  { '-- new header', '-- more header', 'local function greet() return 2 end', 'local value = greet()', 'return value' }
+)
+vim.api.nvim_set_current_buf(head)
+review.attach_diff_lsp(head)
+assert(vim.wait(15000, function()
+  local client = vim.lsp.get_clients({ bufnr = head })[1]
+  return client and client.initialized
+end, 50))
+local head_client = vim.lsp.get_clients({ bufnr = head })[1]
+assert(head_client.id ~= base_client.id, 'base and head require separate document namespaces')
+vim.api.nvim_set_current_buf(buf)
+vim.api.nvim_win_set_cursor(0, { 2, 15 })
+vim.fn.maparg('gd', 'n', false, true).callback()
+assert(
+  vim.wait(15000, function()
+    return vim.api.nvim_win_get_cursor(0)[1] == 1
+  end, 50),
+  'opening head must not replace base LSP text'
+)
+vim.api.nvim_buf_delete(head, { force = true })
+assert(
+  vim.wait(5000, function()
+    return head_client:is_stopped()
+  end, 20),
+  'unused revision server must stop'
+)
+assert(not base_client:is_stopped(), 'closing head must preserve the active base server')
 for _, client in ipairs(vim.lsp.get_clients()) do
   client:stop(true)
 end
