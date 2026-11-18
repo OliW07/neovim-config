@@ -3,6 +3,7 @@ vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open buffe
 vim.keymap.set('n', '<leader>Q', function()
   vim.diagnostic.open_float { border = 'rounded', source = 'if_many' }
 end, { desc = 'Show diagnostic float' })
+vim.keymap.set('n', '<leader>xq', vim.diagnostic.setqflist, { desc = 'Open workspace diagnostic quickfix list' })
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
 
 vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to left window' })
@@ -41,6 +42,7 @@ end, { desc = 'Yank absolute file path' })
 vim.keymap.set({ 'n', 'x' }, '<leader>p', '"+p', { desc = 'Paste from system clipboard' })
 vim.keymap.set('n', '<leader>d', '"_d', { desc = 'Delete without yank' })
 vim.keymap.set('n', '<leader>D', '"_D', { desc = 'Delete line without yank' })
+vim.keymap.set({ 'n', 'x' }, '<leader>xc', '"_c', { desc = 'Change without yank' })
 
 vim.keymap.set('n', 'gp', '`[v`]', { desc = 'Select last pasted' })
 
@@ -72,8 +74,6 @@ end, { desc = 'Resume last search' })
 vim.keymap.set('n', '<leader>fc', function()
   require('telescope.builtin').colorscheme()
 end, { desc = 'Find colorschemes' })
-
-vim.keymap.set('n', '<leader>so', '<cmd>source<CR>', { desc = 'Source current buffer' })
 
 vim.keymap.set('n', '<leader>gb', function()
   require('gitsigns').blame_line()
@@ -136,10 +136,6 @@ local function quit_most(bang)
   end
 
   pcall(vim.cmd.DiffviewClose)
-  local ok_review, review = pcall(require, 'config.review')
-  if ok_review then
-    review.current = nil
-  end
 
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     local cfg = vim.api.nvim_win_get_config(win)

@@ -24,8 +24,8 @@ vim.api.nvim_create_autocmd('FileType', {
   group = vim.api.nvim_create_augroup('rst-settings', { clear = true }),
   desc = 'Make gf follow toctree/doc paths in reStructuredText',
   callback = function()
-    vim.opt_local.suffixesadd:append('.rst')
-    vim.opt_local.path:append('.')
+    vim.opt_local.suffixesadd:append '.rst'
+    vim.opt_local.path:append '.'
   end,
 })
 
@@ -93,7 +93,7 @@ local function commit_under_cursor()
     return nil
   end
   local root = vim.fn.FugitiveWorkTree()
-  local sha = vim.fn.systemlist { 'git', '-C', root, 'rev-parse', '--verify', '--quiet', word .. '^{commit}' }[1]
+  local sha = vim.fn.systemlist({ 'git', '-C', root, 'rev-parse', '--verify', '--quiet', word .. '^{commit}' })[1]
   if vim.v.shell_error ~= 0 or not sha then
     return nil
   end
