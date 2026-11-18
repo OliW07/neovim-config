@@ -103,7 +103,14 @@ function M.setup()
   local cargo_home = vim.env.CARGO_HOME or vim.fn.expand '~/.cargo'
   local rust_analyzer = vim.fn.exepath(vim.fs.joinpath(cargo_home, 'bin', 'rust-analyzer'))
   vim.lsp.config('rust_analyzer', {
-    cmd = { rust_analyzer ~= '' and rust_analyzer or 'rust-analyzer' },
+    cmd = function(dispatchers, config)
+      -- rustup resolves rust-toolchain.toml from the process working directory.
+      return vim.lsp.rpc.start({ rust_analyzer ~= '' and rust_analyzer or 'rust-analyzer' }, dispatchers, {
+        cwd = config.cmd_cwd or config.root_dir,
+        env = config.cmd_env,
+        detached = config.detached,
+      })
+    end,
     settings = { ['rust-analyzer'] = { cargo = { allFeatures = true }, check = { command = 'clippy' } } },
   })
   vim.lsp.config('ts_ls', { before_init = projects.ts_before_init })
