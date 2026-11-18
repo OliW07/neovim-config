@@ -1,6 +1,6 @@
 Run `python3 tests/run.py` from any checkout. The runner loads the checkout as its config,
 reuses installed plugins and tools, and isolates its cache and editor state. Requires Neovim
-0.12, the configured plugins, Mason's Lua language server, `make`, `cmake`, and a
+0.12, the configured plugins, Mason's Lua language server, Python 3, a C compiler, `make`, `cmake`, and a
 POSIX shell. Tests use temporary projects and local processes.
 The PR integration uses a temporary Git remote and checkout with stubbed GitHub responses.
 
@@ -28,14 +28,10 @@ start/end controls, and quiet successful navigation. Unit tests verify bounded p
 queue replacement, foreground adoption, and recovery after background errors. A
 late direct-number metadata response cannot replace a newer review selection.
 
-The editor tests additionally cover asynchronous Make jobs and error output,
-executable discovery in paths containing spaces, quickfix/location-list deletion,
-formatter ownership in monorepos, large-file limits, lint debounce/save-only Go
-checks, lazy plugin loading, independent debugger configuration, and LSP highlight
-attachment/detachment. The full-config integration tests perform a real Lua
-language-server definition lookup and a real CMake configure/build in a temporary
-project (requires `make`, `cmake`, and a POSIX shell). Python/Go/LLDB debugger
-configuration is checked, but full debug sessions are not launched by the suite.
+The editor tests cover asynchronous tasks, quickfix and location lists, formatter
+ownership in monorepos, large-file limits, linting and LSP attachment. They run
+an interactive Python script in its project virtualenv, build and run a CMake
+executable and check Python and LLDB debugger configuration.
 
 Safety regressions additionally exercise repository-scoped drafts, submission
 snapshots, duplicate-submit guards, pending-review retry, stale callback rejection,

@@ -4,7 +4,7 @@ vim.g.have_nerd_font = true
 
 vim.o.number = true
 vim.o.mouse = 'a'
-vim.o.showmode = false
+vim.o.laststatus = 3
 
 -- Use the system clipboard for default yanks and pastes from startup.
 vim.opt.clipboard = 'unnamedplus'

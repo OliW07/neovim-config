@@ -91,13 +91,6 @@ return {
   },
 
   {
-    'folke/todo-comments.nvim',
-    event = 'VimEnter',
-    dependencies = { 'nvim-lua/plenary.nvim' },
-    opts = { signs = false },
-  },
-
-  {
     'mluders/comfy-line-numbers.nvim',
     event = 'BufReadPre',
     opts = {},
@@ -107,17 +100,6 @@ return {
     'windwp/nvim-autopairs',
     event = 'InsertEnter',
     opts = {},
-  },
-
-  {
-    'preservim/vim-pencil',
-    ft = { 'markdown', 'text' },
-    config = function()
-      vim.g.pencil_wrapMode = 'soft'
-      vim.g.pencil_textwidth = 80
-      vim.g.pencil_conceallevel = 2
-      vim.g.pencil_concealcursor = 'i'
-    end,
   },
 
   {

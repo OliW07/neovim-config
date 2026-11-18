@@ -49,14 +49,6 @@ local function project_path()
   end
 end
 
-local function project(marker)
-  local root = vim.fs.root(project_path() or vim.fn.getcwd(), marker)
-  if not root then
-    vim.notify('No ' .. marker .. ' found', vim.log.levels.WARN)
-  end
-  return root
-end
-
 function M.save_project(root)
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].buftype == '' and vim.bo[buf].modified then
@@ -66,104 +58,6 @@ function M.save_project(root)
       end
     end
   end
-end
-
-function M.executables(dirs)
-  local result, seen = {}, {}
-  for _, dir in ipairs(dirs) do
-    if vim.fn.isdirectory(dir) == 1 then
-      for name in vim.fs.dir(dir) do
-        local path = vim.fs.joinpath(dir, name)
-        if not seen[path] and vim.fn.isdirectory(path) == 0 and vim.fn.executable(path) == 1 then
-          seen[path] = true
-          result[#result + 1] = path
-        end
-      end
-    end
-  end
-  table.sort(result)
-  return result
-end
-
-local function choose_executable(root, callback, reselect)
-  -- One file per root keeps independent editor sessions from clobbering other projects.
-  local dir = vim.fs.joinpath(vim.fn.stdpath 'state', 'make-targets')
-  local state = vim.fs.joinpath(dir, vim.fn.sha256(root))
-  local previous
-  if vim.fn.filereadable(state) == 1 then
-    previous = vim.fn.readfile(state)[1]
-  else
-    local legacy = vim.fs.joinpath(vim.fn.stdpath 'data', 'make_last_exe.json')
-    if vim.fn.filereadable(legacy) == 1 then
-      local ok, targets = pcall(vim.json.decode, table.concat(vim.fn.readfile(legacy), '\n'))
-      previous = ok and type(targets) == 'table' and targets[root] or nil
-    end
-  end
-  if not reselect and type(previous) == 'string' and vim.fn.executable(previous) == 1 and vim.fn.isdirectory(previous) == 0 then
-    return callback(previous)
-  end
-  local function selected(path)
-    if not path or path == '' then
-      return
-    end
-    path = vim.fn.fnamemodify(path, ':p')
-    if vim.fn.executable(path) ~= 1 or vim.fn.isdirectory(path) == 1 then
-      return vim.notify('Not an executable: ' .. path, vim.log.levels.ERROR)
-    end
-    vim.fn.mkdir(dir, 'p')
-    local tmp = state .. '.' .. vim.fn.getpid()
-    if vim.fn.writefile({ path }, tmp) ~= 0 or vim.fn.rename(tmp, state) ~= 0 then
-      vim.fn.delete(tmp)
-      vim.notify('Could not remember the Make target', vim.log.levels.WARN)
-    end
-    callback(path)
-  end
-  local candidates = M.executables { root .. '/build', root .. '/build/bin', root }
-  if reselect then
-    local browse = 'Enter a path…'
-    table.insert(candidates, browse)
-    return vim.ui.select(candidates, { prompt = 'Select Make executable:' }, function(path)
-      if path == browse then
-        vim.ui.input({ prompt = 'Executable: ', default = root .. '/', completion = 'file' }, selected)
-      else
-        selected(path)
-      end
-    end)
-  end
-  if #candidates == 1 then
-    return selected(candidates[1])
-  end
-  if #candidates > 1 then
-    return vim.ui.select(candidates, { prompt = 'Executable:' }, selected)
-  end
-  vim.ui.input({ prompt = 'Executable: ', default = root .. '/', completion = 'file' }, selected)
-end
-
-function M.make(action)
-  local root = project 'Makefile'
-  if not root then
-    return
-  end
-  if action == 'select' then
-    return choose_executable(root, function(path)
-      vim.notify('Make target: ' .. path)
-    end, true)
-  end
-  M.save_project(root)
-  M.run({ 'make', '-j' .. M.jobs() }, root, function()
-    if not action then
-      return
-    end
-    choose_executable(root, function(exe)
-      if action == 'debug' then
-        require('dap').run { type = 'lldb', request = 'launch', program = exe, cwd = root, stopOnEntry = false }
-      else
-        vim.cmd 'botright 15new'
-        vim.fn.jobstart({ exe }, { term = true, cwd = root })
-        vim.cmd 'startinsert'
-      end
-    end)
-  end)
 end
 
 local function cmake_root()
@@ -208,7 +102,49 @@ function M.cmake(command)
   if vim.fn.getcwd() ~= root then
     vim.cmd.tcd(vim.fn.fnameescape(root))
   end
-  vim.cmd(command)
+  local cmake = require 'cmake-tools'
+  if (command == 'CMakeRun' or command == 'CMakeDebug') and not cmake.get_build_targets():is_ok() then
+    -- Configure first. The pinned runner stops after generating its first code model.
+    cmake.generate({ bang = false, fargs = {} }, function(result)
+      if result:is_ok() and cmake.get_config().cwd == root then
+        vim.cmd(command)
+      end
+    end)
+  else
+    vim.cmd(command)
+  end
+end
+
+function M.file_action()
+  local win, buf = vim.api.nvim_get_current_win(), vim.api.nvim_get_current_buf()
+  local file, ft = vim.api.nvim_buf_get_name(buf), vim.bo[buf].filetype
+  local python = ft == 'python'
+  if vim.bo[buf].buftype ~= '' or file == '' or file:match '^%a[%w+.-]*://' or not (python or ft == 'c' or ft == 'cpp' or ft == 'cmake') then
+    return vim.notify('Open a Python, C, C++ or CMake file first', vim.log.levels.INFO)
+  end
+  local actions = python and { 'Run', 'Debug' } or { 'Build', 'Run', 'Debug' }
+  vim.ui.select(actions, { prompt = 'Action for ' .. vim.fs.basename(file) }, function(action)
+    if not action or not vim.api.nvim_win_is_valid(win) or vim.api.nvim_win_get_buf(win) ~= buf then
+      return
+    end
+    vim.api.nvim_set_current_win(win)
+    if not python then
+      return M.cmake('CMake' .. action)
+    end
+    vim.cmd.update()
+    local launch = require('config.dap').python_launch(file)
+    if action == 'Debug' then
+      require('dap').run(launch)
+    else
+      vim.cmd 'botright 12new'
+      if vim.fn.jobstart({ launch.pythonPath, file }, { term = true, cwd = launch.cwd }) > 0 then
+        vim.cmd.startinsert()
+      else
+        vim.cmd.bwipeout()
+        vim.notify('Could not start ' .. launch.pythonPath, vim.log.levels.ERROR)
+      end
+    end
+  end)
 end
 
 function M.format_project()
