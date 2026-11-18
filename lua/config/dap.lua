@@ -77,18 +77,18 @@ function M.setup()
     }),
   }
   ui.setup {
-    icons = { expanded = '▾', collapsed = '▸', current_frame = '*' },
+    icons = { expanded = 'v', collapsed = '>', current_frame = '*' },
     controls = {
       icons = {
-        pause = '⏸',
-        play = '▶',
-        step_into = '⏎',
-        step_over = '⏭',
-        step_out = '⏮',
-        step_back = 'b',
-        run_last = '▶▶',
-        terminate = '⏹',
-        disconnect = '⏏',
+        pause = 'pause',
+        play = 'run',
+        step_into = 'in',
+        step_over = 'over',
+        step_out = 'out',
+        step_back = 'back',
+        run_last = 'rerun',
+        terminate = 'stop',
+        disconnect = 'detach',
       },
     },
   }

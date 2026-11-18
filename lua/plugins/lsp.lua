@@ -14,7 +14,7 @@ return {
     event = { 'BufReadPre', 'BufNewFile' },
     dependencies = {
       { 'mason-org/mason.nvim', opts = {} },
-      { 'j-hui/fidget.nvim', opts = {} },
+      { 'j-hui/fidget.nvim', opts = { progress = { display = { progress_icon = '', done_icon = '' } } } },
       'saghen/blink.cmp',
     },
     config = function()
@@ -76,8 +76,8 @@ return {
     },
     opts = {
       keymap = { preset = 'default' },
-      appearance = { nerd_font_variant = 'mono' },
       completion = {
+        menu = { draw = { columns = { { 'label', 'label_description', gap = 1 }, { 'kind' } } } },
         documentation = { auto_show = false, auto_show_delay_ms = 500 },
         trigger = {
           show_on_blocked_trigger_characters = function()

@@ -4,12 +4,12 @@ return {
     event = { 'BufReadPre', 'BufNewFile' },
     opts = {
       signs = {
-        add = { text = '▎' },
-        change = { text = '▎' },
+        add = { text = '+' },
+        change = { text = '~' },
         delete = { text = '_' },
-        topdelete = { text = '‾' },
+        topdelete = { text = '-' },
         changedelete = { text = '~' },
-        untracked = { text = '★' },
+        untracked = { text = '?' },
       },
       current_line_blame = true,
       current_line_blame_opts = {
@@ -109,22 +109,15 @@ return {
 
   {
     'MeanderingProgrammer/render-markdown.nvim',
-    dependencies = { 'nvim-treesitter/nvim-treesitter', 'nvim-tree/nvim-web-devicons' },
+    dependencies = { 'nvim-treesitter/nvim-treesitter' },
     ft = { 'markdown', 'Avante' },
     opts = {
-      heading = {
-        backgrounds = {},
-      },
-      code = {
-        border = 'thin',
-        above = '▔',
-        below = '▁',
-      },
+      heading = { sign = false, icons = {}, backgrounds = {} },
+      code = { sign = false, language_icon = false, highlight = 'CursorLine' },
+      checkbox = { enabled = false },
+      bullet = { enabled = false },
+      link = { enabled = false },
+      quote = { enabled = false },
     },
-    config = function(_, opts)
-      require('render-markdown').setup(opts)
-      vim.api.nvim_set_hl(0, 'RenderMarkdownCodeInline', {})
-      vim.api.nvim_set_hl(0, 'RenderMarkdownCode', { bg = '#121212' })
-    end,
   },
 }
