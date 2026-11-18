@@ -28,7 +28,7 @@ return {
     cmd = { 'ConformInfo' },
     keys = {
       {
-        '<leader>f',
+        '<leader>cf',
         function()
           require('conform').format { async = true, lsp_format = 'fallback' }
         end,
@@ -50,7 +50,7 @@ return {
           c = { lsp = 'clangd' },
           cpp = { lsp = 'clangd' },
           lua = { 'stylua' },
-          python = { 'ruff_fix', 'ruff_format' },
+          python = { 'ruff_format' },
           javascript = js,
           javascriptreact = js,
           typescript = js,
@@ -62,7 +62,7 @@ return {
           yaml = { 'prettier' },
           rust = { 'rustfmt' },
           dart = { 'dart_format' },
-          go = { 'goimports', 'gofumpt' },
+          go = { 'gofumpt' },
         },
       }
     end,

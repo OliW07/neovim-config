@@ -32,7 +32,6 @@ return {
         'selene',
         'yamllint',
         'clang-format',
-        'cppcheck',
         'debugpy',
         'delve',
       },

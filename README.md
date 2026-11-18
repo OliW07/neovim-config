@@ -13,8 +13,12 @@ installs are explicit so normal startup does not launch tool downloads.
 
 C/C++ debugging additionally needs an LLVM `lldb-dap` executable. The config looks
 on PATH and in common macOS LLVM locations. Missing LLDB does not prevent Python
-or Go debugging. Python uses the active virtual environment, a project's `.venv`
-or `venv`, then Python on PATH. Flutter's Dart is preferred when available.
+or Go debugging. Install C/C++ linting with your system package manager
+(`brew install cppcheck` on macOS).
+Rust needs a rustup toolchain with `rust-analyzer`, `rustfmt`, and `clippy`;
+Mason's server alone cannot analyze Rust without Cargo and rustc. Python uses the
+active virtual environment, a project's `.venv` or `venv`, then Python on PATH. Go debugging starts Delve in the target Go module
+even when Neovim was opened elsewhere. Flutter's Dart is preferred when available.
 
 ## Keys
 
@@ -25,10 +29,10 @@ Leader is **Space**. Which-key shows groups as you type.
   `fr` resume, `fc` themes.
 - Buffers/debug: `bd` close buffer, `bb` toggle breakpoint, `bB` conditional breakpoint;
   F5 continues/starts debugging, F1/F2/F3 step, F7 toggles the debugger UI.
-- Editing: `w` save, `f` format buffer, `y` yank to clipboard, `Y` copy file path,
+- Editing: `w` save, `cf` format buffer, `y` yank to clipboard, `Y` copy file path,
   `p` paste from clipboard, `d`/`D` delete without yanking, `xc` change without yanking.
-- Diagnostics: `q` current-buffer location list, `Q` workspace quickfix list.
-  `dd` removes an entry from whichever list is open.
+- Diagnostics: `q` current-buffer location list, `Q` diagnostic float, `xq` workspace quickfix list.
+  `dd` removes an entry from whichever list is open. `gK` (without Leader) shows LSP hover; `K` moves to the window above.
 - Git: `gs` status, `gl` log, `gc` commit, `gp` pull, `gP` push, `gF` fetch,
   `gb` blame, `gS` show the line's commit. `hs`/`hr` stage/reset hunks.
 - Make: `mb` build, `mr` build/run, `md` build/debug. Executable choices are remembered
@@ -38,12 +42,12 @@ Leader is **Space**. Which-key shows groups as you type.
   and set the current tab's cwd to the nearest CMake project. F5 remains general DAP.
 - C/C++: `F` formats the Git project's `src/` and `tools/` files asynchronously.
 - Markdown: `mp` preview, `mn` stop preview, `mz` zen mode, `me` pencil mode.
-- `so` sources the current buffer. `-` opens Oil. `gf` opens a WYA issue under the
+- `-` opens Oil. `gf` opens a WYA issue under the
   cursor or uses normal go-to-file behaviour.
 
 The previous `b`/`B`, `yp`, and `c` mappings moved to `bb`/`bB`, `Y`, and `xc` so
-an operator/action no longer doubles as a longer mapping's prefix.
-
+an operator/action no longer doubles as a longer mapping's prefix. Formatting
+uses `cf` so `f` is exclusively the search prefix.
 
 ## Performance and project behaviour
 
@@ -56,7 +60,7 @@ Biome config selects Biome and suppresses ESLint; other JS/TS packages use Prett
 and their ESLint config. A workspace-root Biome config does not automatically claim
 every package in a pnpm monorepo. TypeScript uses the package's installed SDK.
 
-Linters debounce rapid events, skip unchanged buffers and never lint review/scratch
+Linters debounce rapid events, skip unchanged buffers and never lint scratch
 buffers. Go staticcheck runs at package scope on save; Lua Selene runs only where
 there is a `selene.toml`. Files over 1 MiB or 20,000 lines skip automatic LSP,
 Treesitter, indent guides, linting and format-on-save. Thresholds live in
@@ -66,8 +70,13 @@ Treesitter, indent guides, linting and format-on-save. Thresholds live in
 
 `lua/plugins/` contains plugin declarations and loading triggers. `lua/config/`
 contains editor settings and focused modules for projects, LSP, lint, debugger,
-build tasks and PR review. `work.lua` keeps the local Flutter PATH and Linear mapping.
+and build tasks. `work.lua` keeps the local Flutter PATH and Linear mapping.
 
 Run `python3 tests/run.py` from this directory. Tests use temporary projects,
-mock GitHub responses, and real local Neovim plugins and language-server processes.
+local Git repositories, and real Neovim plugins and language-server processes.
 See [tests/README.md](tests/README.md) for prerequisites and coverage.
+
+## Branch scope
+
+SQL and PR-review workflows belong only to `mac-work`. Start shared editor changes
+from upstream `master`; do not open upstream PRs directly from `mac-work`.

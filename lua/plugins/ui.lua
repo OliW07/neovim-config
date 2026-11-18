@@ -88,10 +88,10 @@ return {
         },
       },
       spec = {
+        { '<leader>f', group = 'Find' },
         { '<leader>t', group = 'Toggle' },
         { '<leader>h', group = 'Git hunk', mode = { 'n', 'v' } },
         { '<leader>g', group = 'Git' },
-        { '<leader>gr', group = 'PR review', mode = { 'n', 'x' } },
       },
     },
   },
@@ -303,11 +303,6 @@ return {
     opts = function()
       local actions = require 'diffview.actions'
       return {
-        hooks = {
-          diff_buf_win_enter = function(bufnr)
-            require('config.review').prepare_diff_lsp(bufnr)
-          end,
-        },
         file_panel = {
           win_config = {
             win_opts = {
