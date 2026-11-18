@@ -32,7 +32,6 @@ return {
         'yamllint',
         'clang-format',
         'debugpy',
-        'delve',
       },
     },
   },

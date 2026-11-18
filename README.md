@@ -13,18 +13,17 @@ Search uses `rg`. The native Telescope sorter needs a C compiler and CMake or
 Make. Run `:Lazy build telescope-fzf-native.nvim` after installing the tools.
 
 Open `:Lazy` to install plugins. Use `:MasonToolsInstall` to install the configured
-language servers, formatters, linters and Python/Go debug adapters. Run
+language servers, formatters, linters and the debugpy Python debugger. Run
 `:TSInstallCommon` once to install the configured Treesitter parsers. Tool/parser updates and
 installs are explicit so normal startup does not launch tool downloads.
 
 C/C++ debugging additionally needs an LLVM `lldb-dap` executable. The config looks
-on PATH and in common macOS LLVM locations. Missing LLDB does not prevent Python
-or Go debugging. Install C/C++ linting with your system package manager
-(`brew install cppcheck` on macOS).
+on PATH and in common macOS LLVM locations. On macOS, CMake debug sessions
+use LLDB’s internal console. Choose **Run** for an interactive terminal.
+Install C/C++ linting with your system package manager (`brew install cppcheck` on macOS).
 Rust needs a rustup toolchain with `rust-analyzer`, `rustfmt`, and `clippy`;
 Install these components with rustup so the project's toolchain selects its analyzer. Python uses the
-active virtual environment, a project's `.venv` or `venv`, then Python on PATH. Go debugging starts Delve in the target Go module
-even when Neovim was opened elsewhere. Flutter's Dart is preferred when available.
+active virtual environment, a project's `.venv` or `venv`, then Python on PATH. Flutter's Dart is preferred when available.
 
 ## Keys
 
@@ -42,8 +41,11 @@ Leader is **Space**. Which-key shows groups as you type.
 - Git: `gs` status, `gl` log, `gc` commit, `gp` pull, `gP` push, `gF` fetch,
   `gb` blame, `gS` show the current buffer line's commit. In a Fugitive log,
   `gD` opens the commit under the cursor in Diffview. Enter keeps Fugitive's normal navigation. `hs`/`hr` stage/reset hunks.
-- Make: `mb` build, `mr` build/run, `md` build/debug. Executable choices are remembered
-  per project. Use `ms` to change the remembered executable. Failed commands put their output in quickfix.
+- Press `Space r` in a Python file to **Run** it in an interactive terminal or
+  **Debug** it with breakpoints. Both use the project interpreter and working
+  directory. Standalone scripts run from their own directory.
+- In C/C++ sources, headers, and CMake files, `Space r` offers **Build**, **Run**,
+  and **Debug** for the CMake project. Choose a target when prompted.
 - CMake: `cc` or `cg` configure, `cb` build, `cr` run, `cd` debug, `ct` build type,
   `cs` build target, `cl` launch target, `cT` tests. These use cmake-tools exclusively
   and set the tab cwd to the source root. Nested CMakeLists files share their
@@ -51,7 +53,7 @@ Leader is **Space**. Which-key shows groups as you type.
   `:CMakeSelectCwd`) can select an independent build. Builds save modified
   files within that project. F5 remains general DAP.
 - C/C++: `F` formats the Git project's `src/` and `tools/` files asynchronously.
-- Markdown: `mp` preview, `mn` stop preview, `mz` zen mode, `me` pencil mode.
+- Markdown: `mp` preview, `mn` stop preview.
 - `-` opens Oil. `gf` opens a WYA issue under the
   cursor or uses normal go-to-file behaviour.
 

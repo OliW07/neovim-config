@@ -5,8 +5,6 @@ return {
       'rcarriga/nvim-dap-ui',
       'nvim-neotest/nvim-nio',
       'mason-org/mason.nvim',
-      'jay-babu/mason-nvim-dap.nvim',
-      'leoluz/nvim-dap-go',
     },
     keys = {
       {
@@ -162,6 +160,7 @@ return {
       cmake.setup(opts)
     end,
     opts = function()
+      local mac = vim.fn.has 'mac' == 1
       return {
         cmake_build_directory = 'build',
         cmake_regenerate_on_save = false,
@@ -170,12 +169,10 @@ return {
         cmake_executor = { name = 'quickfix', opts = {} },
         cmake_runner = { name = 'terminal' },
         cmake_dap_configuration = {
-          name = 'cpp',
           type = 'lldb',
-          request = 'launch',
-          stopOnEntry = false,
-          runInTerminal = true,
-          console = 'integratedTerminal',
+          -- Apple's LLDB can time out attaching through the terminal launcher.
+          runInTerminal = not mac,
+          console = mac and 'internalConsole' or 'integratedTerminal',
         },
       }
     end,

@@ -28,8 +28,6 @@ vim.keymap.set('n', 'n', 'nzzzv', { desc = 'Next search result centered' })
 vim.keymap.set('n', 'N', 'Nzzzv', { desc = 'Prev search result centered' })
 
 vim.keymap.set('n', '<leader>mp', '<cmd>MarkdownPreviewToggle<CR>', { desc = 'Markdown preview toggle' })
-vim.keymap.set('n', '<leader>mz', '<cmd>ZenMode<CR>', { desc = 'Markdown zen mode' })
-vim.keymap.set('n', '<leader>me', '<cmd>Pencil<CR>', { desc = 'Markdown edit mode' })
 vim.keymap.set('n', '<leader>mn', '<cmd>noautocmd MarkdownPreviewStop<CR>', { desc = 'Markdown stop preview' })
 
 vim.keymap.set({ 'n', 'x' }, '<leader>y', '"+y', { desc = 'Yank to system clipboard' })
@@ -114,12 +112,9 @@ vim.keymap.set('n', '<leader>gp', '<cmd>Git pull<CR>', { desc = 'Git pull' })
 vim.keymap.set('n', '<leader>gP', '<cmd>Git push<CR>', { desc = 'Git push' })
 vim.keymap.set('n', '<leader>gF', '<cmd>Git fetch<CR>', { desc = 'Git fetch' })
 
--- Build tasks load on demand and never block the editor.
-for key, action in pairs { mb = 'build', mr = 'run', md = 'debug', ms = 'select' } do
-  vim.keymap.set('n', '<leader>' .. key, function()
-    require('config.tasks').make(action ~= 'build' and action or nil)
-  end, { desc = 'Make ' .. action })
-end
+vim.keymap.set('n', '<leader>r', function()
+  require('config.tasks').file_action()
+end, { desc = 'Run, build or debug' })
 vim.keymap.set('n', '<leader>F', function()
   require('config.tasks').format_project()
 end, { desc = 'Format C/C++ project' })
