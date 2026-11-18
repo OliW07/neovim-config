@@ -32,9 +32,15 @@ assert(not vim.lsp.is_enabled 'sql_schema', 'SQL schema tooling belongs only on 
 assert(not package.loaded['config.sql'])
 assert(vim.lsp.is_enabled 'gopls' and vim.lsp.is_enabled 'biome', 'server setup must not depend on VeryLazy')
 local proxy = vim.fn.exepath(vim.fs.joinpath(vim.env.CARGO_HOME or vim.fn.expand '~/.cargo', 'bin', 'rust-analyzer'))
-if proxy ~= '' then
-  assert(vim.lsp.config.rust_analyzer.cmd[1] == proxy, 'Mason must not shadow rustup')
+local start = vim.lsp.rpc.start
+local command, process
+vim.lsp.rpc.start = function(cmd, _, opts)
+  command, process = cmd, opts
 end
+vim.lsp.config.rust_analyzer.cmd({}, { root_dir = '/rust/project' })
+vim.lsp.rpc.start = start
+assert(command[1] == (proxy ~= '' and proxy or 'rust-analyzer'), 'Mason must not shadow rustup')
+assert(process.cwd == '/rust/project', 'resolve rust-toolchain.toml from the opened project')
 local original_get = vim.lsp.get_client_by_id
 local original_clients = vim.lsp.get_clients
 local fake = {
