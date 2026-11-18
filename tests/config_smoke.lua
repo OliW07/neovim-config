@@ -31,6 +31,16 @@ assert(vim.deep_equal(vim.lsp.config.clangd.capabilities.general.positionEncodin
 assert(not vim.lsp.is_enabled 'sql_schema', 'SQL schema tooling belongs only on mac-work')
 assert(not package.loaded['config.sql'])
 assert(vim.lsp.is_enabled 'gopls' and vim.lsp.is_enabled 'biome', 'server setup must not depend on VeryLazy')
+local proxy = vim.fn.exepath(vim.fs.joinpath(vim.env.CARGO_HOME or vim.fn.expand '~/.cargo', 'bin', 'rust-analyzer'))
+local start = vim.lsp.rpc.start
+local command, process
+vim.lsp.rpc.start = function(cmd, _, opts)
+  command, process = cmd, opts
+end
+vim.lsp.config.rust_analyzer.cmd({}, { root_dir = '/rust/project' })
+vim.lsp.rpc.start = start
+assert(command[1] == (proxy ~= '' and proxy or 'rust-analyzer'), 'Mason must not shadow rustup')
+assert(process.cwd == '/rust/project', 'resolve rust-toolchain.toml from the opened project')
 local original_get = vim.lsp.get_client_by_id
 local original_clients = vim.lsp.get_clients
 local fake = {
@@ -83,5 +93,11 @@ for _, pattern in ipairs(search.file_ignore_patterns) do
   assert(not ('src/digit.ts'):find(pattern), 'ignore patterns must not hide unrelated filenames')
 end
 assert(vim.tbl_contains(search.vimgrep_arguments, '--smart-case'))
+for _, ext in ipairs { 'lua', 'md' } do
+  local path = vim.fn.tempname() .. '.' .. ext
+  vim.fn.writefile({ string.rep('a', require('config.buffer').max_bytes + 1) }, path)
+  vim.cmd.edit(vim.fn.fnameescape(path))
+  assert(not vim.treesitter.highlighter.active[vim.api.nvim_get_current_buf()], 'built-in highlighter remained active on large ' .. ext)
+end
 io.stdout:write 'PASS full config, lazy tools, independent debuggers, key prefixes, unified LSP/formatting, highlight lifecycle\n'
 vim.cmd 'qa!'

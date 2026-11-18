@@ -47,6 +47,29 @@ vim.fn.setloclist(0, {}, 'r', { items = { { filename = 'local-one', lnum = 1 }, 
 vim.cmd 'lopen'
 vim.fn.maparg('dd', 'n', false, true).callback()
 assert(#vim.fn.getloclist(0) == 1 and #vim.fn.getqflist() == 1, 'location list deletion must not edit quickfix')
+local other = vim.fn.tempname()
+vim.fn.mkdir(other .. '/src', 'p')
+vim.cmd.cd(vim.fn.fnameescape(other))
+vim.cmd.edit(vim.fn.fnameescape(root .. '/outside.c'))
+local called = false
+local system = vim.system
+vim.system = function()
+  called = true
+end
+tasks.format_project()
+vim.system = system
+assert(not called and messages[#messages]:find('Git project'), 'formatting outside Git must stop before enumerating files')
+
+local choices = 0
+vim.ui.select = function(items, _, select)
+  choices = choices + 1
+  select(items[1])
+end
+tasks.make('select')
+assert(choices == 1, 'Make executable selection should be available without building')
+local state = vim.fn.stdpath 'state' .. '/make-targets/' .. vim.fn.sha256(vim.fs.root(0, 'Makefile'))
+assert(vim.fn.readfile(state)[1]:match 'my program$', 'persist executable for this project only')
+vim.fn.delete(other, 'rf')
 vim.fn.delete(root, 'rf')
 print 'PASS asynchronous build, executable discovery, duplicate jobs, build errors, quickfix and location lists'
 vim.cmd 'qa!'

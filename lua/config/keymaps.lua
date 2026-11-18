@@ -115,7 +115,7 @@ vim.keymap.set('n', '<leader>gP', '<cmd>Git push<CR>', { desc = 'Git push' })
 vim.keymap.set('n', '<leader>gF', '<cmd>Git fetch<CR>', { desc = 'Git fetch' })
 
 -- Build tasks load on demand and never block the editor.
-for key, action in pairs { mb = 'build', mr = 'run', md = 'debug' } do
+for key, action in pairs { mb = 'build', mr = 'run', md = 'debug', ms = 'select' } do
   vim.keymap.set('n', '<leader>' .. key, function()
     require('config.tasks').make(action ~= 'build' and action or nil)
   end, { desc = 'Make ' .. action })
@@ -135,7 +135,9 @@ local function quit_most(bang)
     end
   end
 
-  pcall(vim.cmd.DiffviewClose)
+  if package.loaded.diffview then
+    pcall(vim.cmd.DiffviewClose)
+  end
 
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     local cfg = vim.api.nvim_win_get_config(win)
