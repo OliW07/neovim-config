@@ -15,7 +15,6 @@ return {
         end,
       },
       { 'nvim-telescope/telescope-ui-select.nvim' },
-      { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
     },
     config = function()
       require('telescope').setup {
@@ -62,28 +61,9 @@ return {
     'folke/which-key.nvim',
     event = 'VimEnter',
     opts = {
-      delay = 0,
-      icons = {
-        mappings = vim.g.have_nerd_font,
-        keys = vim.g.have_nerd_font and {} or {
-          Up = '<Up> ',
-          Down = '<Down> ',
-          Left = '<Left> ',
-          Right = '<Right> ',
-          C = '<C-…> ',
-          M = '<M-…> ',
-          D = '<D-…> ',
-          S = '<S-…> ',
-          CR = '<CR> ',
-          Esc = '<Esc> ',
-          ScrollWheelDown = '<ScrollWheelDown> ',
-          ScrollWheelUp = '<ScrollWheelUp> ',
-          NL = '<NL> ',
-          BS = '<BS> ',
-          Space = '<Space> ',
-          Tab = '<Tab> ',
-        },
-      },
+      delay = 300,
+      icons = { mappings = false, breadcrumb = '/', separator = ' ' },
+      replace = { key = { { '<Space>', 'Space' } } },
       spec = {
         { '<leader>f', group = 'Find' },
         { '<leader>t', group = 'Toggle' },
@@ -98,25 +78,31 @@ return {
     lazy = false,
     priority = 1000,
     config = function()
-      vim.g.everforest_background = 'medium'
-      vim.g.everforest_transparent_background = 1
-      vim.g.everforest_dim_inactive_windows = 1
+      vim.o.background = 'dark'
+      vim.g.everforest_ui_contrast = 'high'
       vim.g.everforest_disable_italic_comment = 1
       vim.g.everforest_colors_override = {
-        green = { '#b8a070', '142' },
+        bg_dim = { '#22201d', '234' },
+        bg0 = { '#292723', '235' },
+        bg1 = { '#302e29', '236' },
+        bg2 = { '#393630', '237' },
+        bg3 = { '#423e37', '238' },
+        bg4 = { '#4c473f', '239' },
+        bg5 = { '#696257', '241' },
+        bg_visual = { '#504b3e', '239' },
+        fg = { '#ded5c7', '253' },
+        grey0 = { '#928a7d', '245' },
+        grey1 = { '#a49b8e', '247' },
+        grey2 = { '#beb4a4', '250' },
+        red = { '#d39e88', '180' },
+        orange = { '#c7b294', '180' },
+        yellow = { '#d1b988', '180' },
+        green = { '#b6b9a1', '145' },
+        aqua = { '#aab594', '144' },
+        blue = { '#b1b6b0', '145' },
+        purple = { '#c1b0a1', '145' },
       }
       vim.cmd.colorscheme 'everforest'
-      vim.api.nvim_set_hl(0, 'LineNr', { fg = '#C4B9A0' })
-      vim.api.nvim_set_hl(0, 'LineNrAbove', { fg = '#C4B9A0' })
-      vim.api.nvim_set_hl(0, 'LineNrBelow', { fg = '#C4B9A0' })
-      vim.api.nvim_set_hl(0, 'CursorLineNr', { fg = '#D4C9B8' })
-      vim.api.nvim_set_hl(0, 'StatusLine', { bg = 'none', fg = '#D4C9B8' })
-      vim.api.nvim_set_hl(0, 'StatusLineNC', { bg = 'none', fg = '#5A5247' })
-      vim.api.nvim_set_hl(0, 'Visual', { reverse = true })
-      vim.api.nvim_set_hl(0, 'VisualNOS', { reverse = true })
-      vim.api.nvim_set_hl(0, 'Search', { reverse = true })
-      vim.api.nvim_set_hl(0, 'IncSearch', { reverse = true })
-      vim.api.nvim_set_hl(0, 'Substitute', { reverse = true })
     end,
   },
 
@@ -179,117 +165,6 @@ return {
   },
 
   {
-    'folke/zen-mode.nvim',
-    cmd = 'ZenMode',
-    opts = {
-      window = {
-        width = 120,
-        options = { number = false, relativenumber = false },
-      },
-    },
-  },
-
-  {
-    'nvim-lualine/lualine.nvim',
-    event = 'VeryLazy',
-    dependencies = { 'nvim-tree/nvim-web-devicons' },
-    opts = {
-      options = {
-        theme = {
-          normal = {
-            a = { bg = 'none', fg = '#D4C9B8', gui = 'none' },
-            b = { bg = 'none', fg = '#D4C9B8', gui = 'none' },
-            c = { bg = 'none', fg = '#D4C9B8', gui = 'none' },
-          },
-          insert = { a = { bg = 'none', fg = '#A8C08A', gui = 'none' } },
-          visual = { a = { bg = 'none', fg = '#C0A8C0', gui = 'none' } },
-          replace = { a = { bg = 'none', fg = '#D4877A', gui = 'none' } },
-          command = { a = { bg = 'none', fg = '#8AB8C0', gui = 'none' } },
-          terminal = { a = { bg = 'none', fg = '#8AC0B0', gui = 'none' } },
-          inactive = {
-            a = { bg = 'none', fg = '#5A5247', gui = 'none' },
-            b = { bg = 'none', fg = '#5A5247', gui = 'none' },
-            c = { bg = 'none', fg = '#5A5247', gui = 'none' },
-          },
-        },
-        globalstatus = true,
-        disabled_filetypes = { statusline = { 'dashboard', 'alpha', 'starter' } },
-        component_separators = '',
-        section_separators = '',
-      },
-      sections = {
-        lualine_a = { 'mode' },
-        lualine_b = { 'branch' },
-        lualine_c = { 'filename' },
-        lualine_x = {
-          {
-            function()
-              local reg = vim.fn.reg_recording()
-              if reg == '' then
-                return ''
-              end
-              return 'recording @' .. reg
-            end,
-            color = { fg = '#D4877A' },
-          },
-        },
-        lualine_y = {},
-        lualine_z = { 'location' },
-      },
-      extensions = { 'oil', 'fugitive' },
-    },
-  },
-
-  {
-    'folke/noice.nvim',
-    event = 'VeryLazy',
-    dependencies = {
-      'MunifTanjim/nui.nvim',
-      'rcarriga/nvim-notify',
-    },
-    opts = {
-      routes = {
-        {
-          filter = { event = 'msg_show', kind = { 'echo', 'echomsg' } },
-          view = 'mini',
-        },
-      },
-      lsp = {
-        override = {
-          ['vim.lsp.util.convert_input_to_markdown_lines'] = true,
-          ['vim.lsp.util.stylize_markdown'] = true,
-        },
-      },
-      presets = {
-        bottom_search = true,
-        command_palette = true,
-        long_message_to_split = true,
-        inc_rename = true,
-      },
-    },
-    keys = {
-      {
-        '<S-Enter>',
-        function()
-          require('noice').redirect(vim.fn.getcmdline())
-        end,
-        mode = 'c',
-        desc = 'Redirect cmdline',
-      },
-    },
-  },
-
-  {
-    'rcarriga/nvim-notify',
-    lazy = true,
-    opts = {
-      stages = 'fade',
-      timeout = 2000,
-      render = 'default',
-    },
-  },
-
-  {
     'sindrets/diffview.nvim',
     cmd = { 'DiffviewOpen', 'DiffviewClose', 'DiffviewFileHistory' },
     keys = {
@@ -299,6 +174,8 @@ return {
     opts = function()
       local actions = require 'diffview.actions'
       return {
+        use_icons = false,
+        signs = { fold_closed = '>', fold_open = 'v', done = 'x' },
         file_panel = {
           win_config = {
             win_opts = {
