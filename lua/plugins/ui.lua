@@ -15,7 +15,6 @@ return {
         end,
       },
       { 'nvim-telescope/telescope-ui-select.nvim' },
-      { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
     },
     config = function()
       require('telescope').setup {
@@ -62,28 +61,9 @@ return {
     'folke/which-key.nvim',
     event = 'VimEnter',
     opts = {
-      delay = 0,
-      icons = {
-        mappings = vim.g.have_nerd_font,
-        keys = vim.g.have_nerd_font and {} or {
-          Up = '<Up> ',
-          Down = '<Down> ',
-          Left = '<Left> ',
-          Right = '<Right> ',
-          C = '<C-…> ',
-          M = '<M-…> ',
-          D = '<D-…> ',
-          S = '<S-…> ',
-          CR = '<CR> ',
-          Esc = '<Esc> ',
-          ScrollWheelDown = '<ScrollWheelDown> ',
-          ScrollWheelUp = '<ScrollWheelUp> ',
-          NL = '<NL> ',
-          BS = '<BS> ',
-          Space = '<Space> ',
-          Tab = '<Tab> ',
-        },
-      },
+      delay = 300,
+      icons = { mappings = false, breadcrumb = '/', separator = ' ' },
+      replace = { key = { { '<Space>', 'Space' } } },
       spec = {
         { '<leader>f', group = 'Find' },
         { '<leader>t', group = 'Toggle' },
@@ -98,25 +78,31 @@ return {
     lazy = false,
     priority = 1000,
     config = function()
-      vim.g.everforest_background = 'medium'
-      vim.g.everforest_transparent_background = 1
-      vim.g.everforest_dim_inactive_windows = 1
+      vim.o.background = 'dark'
+      vim.g.everforest_ui_contrast = 'high'
       vim.g.everforest_disable_italic_comment = 1
       vim.g.everforest_colors_override = {
-        green = { '#b8a070', '142' },
+        bg_dim = { '#22201d', '234' },
+        bg0 = { '#292723', '235' },
+        bg1 = { '#302e29', '236' },
+        bg2 = { '#393630', '237' },
+        bg3 = { '#423e37', '238' },
+        bg4 = { '#4c473f', '239' },
+        bg5 = { '#696257', '241' },
+        bg_visual = { '#504b3e', '239' },
+        fg = { '#ded5c7', '253' },
+        grey0 = { '#928a7d', '245' },
+        grey1 = { '#a49b8e', '247' },
+        grey2 = { '#beb4a4', '250' },
+        red = { '#d39e88', '180' },
+        orange = { '#c7b294', '180' },
+        yellow = { '#d1b988', '180' },
+        green = { '#b6b9a1', '145' },
+        aqua = { '#aab594', '144' },
+        blue = { '#b1b6b0', '145' },
+        purple = { '#c1b0a1', '145' },
       }
       vim.cmd.colorscheme 'everforest'
-      vim.api.nvim_set_hl(0, 'LineNr', { fg = '#C4B9A0' })
-      vim.api.nvim_set_hl(0, 'LineNrAbove', { fg = '#C4B9A0' })
-      vim.api.nvim_set_hl(0, 'LineNrBelow', { fg = '#C4B9A0' })
-      vim.api.nvim_set_hl(0, 'CursorLineNr', { fg = '#D4C9B8' })
-      vim.api.nvim_set_hl(0, 'StatusLine', { bg = 'none', fg = '#D4C9B8' })
-      vim.api.nvim_set_hl(0, 'StatusLineNC', { bg = 'none', fg = '#5A5247' })
-      vim.api.nvim_set_hl(0, 'Visual', { reverse = true })
-      vim.api.nvim_set_hl(0, 'VisualNOS', { reverse = true })
-      vim.api.nvim_set_hl(0, 'Search', { reverse = true })
-      vim.api.nvim_set_hl(0, 'IncSearch', { reverse = true })
-      vim.api.nvim_set_hl(0, 'Substitute', { reverse = true })
     end,
   },
 
@@ -188,6 +174,8 @@ return {
     opts = function()
       local actions = require 'diffview.actions'
       return {
+        use_icons = false,
+        signs = { fold_closed = '>', fold_open = 'v', done = 'x' },
         file_panel = {
           win_config = {
             win_opts = {

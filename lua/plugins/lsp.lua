@@ -14,7 +14,7 @@ return {
     event = { 'BufReadPre', 'BufNewFile' },
     dependencies = {
       { 'mason-org/mason.nvim', opts = {} },
-      { 'j-hui/fidget.nvim', opts = {} },
+      { 'j-hui/fidget.nvim', opts = { progress = { display = { progress_icon = '', done_icon = '' } } } },
       'saghen/blink.cmp',
     },
     config = function()
@@ -76,8 +76,10 @@ return {
     },
     opts = {
       keymap = { preset = 'default' },
-      appearance = { nerd_font_variant = 'mono' },
-      completion = { documentation = { auto_show = false, auto_show_delay_ms = 500 } },
+      completion = {
+        menu = { draw = { columns = { { 'label', 'label_description', gap = 1 }, { 'kind' } } } },
+        documentation = { auto_show = false, auto_show_delay_ms = 500 },
+      },
       sources = {
         default = { 'lsp', 'path', 'lazydev' },
         providers = { lazydev = { module = 'lazydev.integrations.blink', score_offset = 100 } },
