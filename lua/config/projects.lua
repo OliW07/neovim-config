@@ -1,53 +1,23 @@
 local M = {}
 
-local typescript_filetypes = {
-  javascript = true,
-  javascriptreact = true,
-  typescript = true,
-  typescriptreact = true,
-}
+local tsserver_path = 'node_modules/typescript/lib/tsserver.js'
 
-local function local_tsserver(bufnr, root_dir)
-  local filename = vim.b[bufnr].review_lsp_path or vim.api.nvim_buf_get_name(bufnr)
-  if filename == '' then
-    return
-  end
-
-  local directory = vim.fs.dirname(filename)
-  while directory and (not root_dir or directory == root_dir or vim.startswith(directory, root_dir .. '/')) do
-    local candidate = vim.fs.joinpath(directory, 'node_modules', 'typescript', 'lib', 'tsserver.js')
-    if (vim.uv or vim.loop).fs_stat(candidate) then
-      return candidate
-    end
-
-    local parent = vim.fs.dirname(directory)
-    if parent == directory then
+-- A ts_ls client has one SDK. Give packages with their own SDK distinct clients.
+function M.typescript_root(buf, workspace)
+  local path = vim.b[buf].review_lsp_path or vim.api.nvim_buf_get_name(buf)
+  for dir in vim.fs.parents(path) do
+    if not vim.fs.relpath(workspace, dir) then
       break
     end
-    directory = parent
-  end
-end
-
-local function project_tsserver(root_dir)
-  local current = vim.api.nvim_get_current_buf()
-  if typescript_filetypes[vim.bo[current].filetype] then
-    local tsserver = local_tsserver(current, root_dir)
-    if tsserver then
-      return tsserver
+    if vim.fn.filereadable(vim.fs.joinpath(dir, tsserver_path)) == 1 then
+      return dir
     end
   end
-
-  for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
-    if vim.api.nvim_buf_is_loaded(bufnr) and typescript_filetypes[vim.bo[bufnr].filetype] then
-      local tsserver = local_tsserver(bufnr, root_dir)
-      if tsserver then
-        return tsserver
-      end
-    end
-  end
+  return workspace
 end
 
 local function package_biome_config(bufnr)
+  local package_root = vim.fs.root(bufnr, 'package.json')
   local project_root = vim.fs.root(bufnr, {
     'package-lock.json',
     'yarn.lock',
@@ -55,7 +25,7 @@ local function package_biome_config(bufnr)
     'bun.lockb',
     'bun.lock',
     '.git',
-  })
+  }) or package_root
   if not project_root then
     return false
   end
@@ -74,7 +44,6 @@ local function package_biome_config(bufnr)
     return false
   end
 
-  local package_root = vim.fs.root(bufnr, 'package.json')
   if not package_root then
     return config
   end
@@ -97,8 +66,8 @@ local function javascript_formatters(bufnr)
 end
 
 function M.ts_before_init(params, config)
-  local tsserver = project_tsserver(config.root_dir)
-  if tsserver then
+  local tsserver = vim.fs.joinpath(config.root_dir, tsserver_path)
+  if vim.fn.filereadable(tsserver) == 1 then
     config.init_options = vim.tbl_deep_extend('force', config.init_options or {}, { tsserver = { path = tsserver } })
     params.initializationOptions = config.init_options
   end

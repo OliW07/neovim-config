@@ -39,14 +39,33 @@ function M.run(cmd, cwd, done)
   return ok and job or nil
 end
 
+local function project_path()
+  if vim.bo.filetype == 'oil' then
+    return require('oil').get_current_dir()
+  end
+  local path = vim.b.review_lsp_path or vim.api.nvim_buf_get_name(0)
+  if path ~= '' and not path:match '^%a[%w+.-]*://' then
+    return path
+  end
+end
+
 local function project(marker)
-  local filename = vim.b.review_lsp_path or vim.api.nvim_buf_get_name(0)
-  local path = filename ~= '' and not filename:match '^%w+://' and filename or vim.fn.getcwd()
-  local root = vim.fs.root(path, marker)
+  local root = vim.fs.root(project_path() or vim.fn.getcwd(), marker)
   if not root then
     vim.notify('No ' .. marker .. ' found', vim.log.levels.WARN)
   end
   return root
+end
+
+function M.save_project(root)
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].buftype == '' and vim.bo[buf].modified then
+      local path = vim.api.nvim_buf_get_name(buf)
+      if path ~= '' and vim.fs.relpath(root, path) then
+        vim.api.nvim_buf_call(buf, vim.cmd.update)
+      end
+    end
+  end
 end
 
 function M.executables(dirs)
@@ -66,21 +85,21 @@ function M.executables(dirs)
   return result
 end
 
-local remembered
-local function choose_executable(root, callback)
-  local state = vim.fn.stdpath 'data' .. '/make_last_exe.json'
-  if not remembered then
-    remembered = {}
-    local ok, lines = pcall(vim.fn.readfile, state)
-    if ok then
-      local decoded, value = pcall(vim.json.decode, table.concat(lines, '\n'))
-      if decoded and type(value) == 'table' then
-        remembered = value
-      end
+local function choose_executable(root, callback, reselect)
+  -- One file per root keeps independent editor sessions from clobbering other projects.
+  local dir = vim.fs.joinpath(vim.fn.stdpath 'state', 'make-targets')
+  local state = vim.fs.joinpath(dir, vim.fn.sha256(root))
+  local previous
+  if vim.fn.filereadable(state) == 1 then
+    previous = vim.fn.readfile(state)[1]
+  else
+    local legacy = vim.fs.joinpath(vim.fn.stdpath 'data', 'make_last_exe.json')
+    if vim.fn.filereadable(legacy) == 1 then
+      local ok, targets = pcall(vim.json.decode, table.concat(vim.fn.readfile(legacy), '\n'))
+      previous = ok and type(targets) == 'table' and targets[root] or nil
     end
   end
-  local previous = remembered[root]
-  if type(previous) == 'string' and vim.fn.executable(previous) == 1 and vim.fn.isdirectory(previous) == 0 then
+  if not reselect and type(previous) == 'string' and vim.fn.executable(previous) == 1 and vim.fn.isdirectory(previous) == 0 then
     return callback(previous)
   end
   local function selected(path)
@@ -88,13 +107,29 @@ local function choose_executable(root, callback)
       return
     end
     path = vim.fn.fnamemodify(path, ':p')
-    if vim.fn.executable(path) == 1 and vim.fn.isdirectory(path) == 0 then
-      remembered[root] = path
-      vim.fn.writefile({ vim.json.encode(remembered) }, state)
+    if vim.fn.executable(path) ~= 1 or vim.fn.isdirectory(path) == 1 then
+      return vim.notify('Not an executable: ' .. path, vim.log.levels.ERROR)
+    end
+    vim.fn.mkdir(dir, 'p')
+    local tmp = state .. '.' .. vim.fn.getpid()
+    if vim.fn.writefile({ path }, tmp) ~= 0 or vim.fn.rename(tmp, state) ~= 0 then
+      vim.fn.delete(tmp)
+      vim.notify('Could not remember the Make target', vim.log.levels.WARN)
     end
     callback(path)
   end
   local candidates = M.executables { root .. '/build', root .. '/build/bin', root }
+  if reselect then
+    local browse = 'Enter a path…'
+    table.insert(candidates, browse)
+    return vim.ui.select(candidates, { prompt = 'Select Make executable:' }, function(path)
+      if path == browse then
+        vim.ui.input({ prompt = 'Executable: ', default = root .. '/', completion = 'file' }, selected)
+      else
+        selected(path)
+      end
+    end)
+  end
   if #candidates == 1 then
     return selected(candidates[1])
   end
@@ -109,18 +144,17 @@ function M.make(action)
   if not root then
     return
   end
-  vim.cmd 'wall'
+  if action == 'select' then
+    return choose_executable(root, function(path)
+      vim.notify('Make target: ' .. path)
+    end, true)
+  end
+  M.save_project(root)
   M.run({ 'make', '-j' .. M.jobs() }, root, function()
     if not action then
       return
     end
     choose_executable(root, function(exe)
-      if not exe then
-        return
-      end
-      if vim.fn.isdirectory(exe) == 1 or vim.fn.executable(exe) ~= 1 then
-        return vim.notify('Not an executable: ' .. exe, vim.log.levels.ERROR)
-      end
       if action == 'debug' then
         require('dap').run { type = 'lldb', request = 'launch', program = exe, cwd = root, stopOnEntry = false }
       else
@@ -132,25 +166,60 @@ function M.make(action)
   end)
 end
 
-function M.cmake(command)
-  local root = project 'CMakeLists.txt'
-  if not root then
+local function cmake_root()
+  local path = project_path() or vim.fn.getcwd()
+  local cwd = vim.fn.getcwd()
+  local selected = vim.fs.abspath(require('cmake-tools').get_config().cwd)
+  if selected ~= cwd and vim.fn.filereadable(selected .. '/CMakeLists.txt') == 1 then
+    return selected -- :CMakeSelectCwd sets the plugin's source directory directly.
+  end
+  local nearest = vim.fs.root(path, 'CMakeLists.txt')
+  if not nearest then
     return
   end
-  -- cmake-tools owns build state by cwd; switch only this tab to the project.
-  if vim.fn.getcwd() ~= root then
-    vim.cmd('tcd ' .. vim.fn.fnameescape(root))
+  local boundary = vim.fs.root(nearest, '.git')
+  local root = nearest
+  local dir = nearest
+  while dir do
+    if vim.fn.filereadable(dir .. '/CMakeLists.txt') == 1 then
+      root = dir
+      if
+        (dir == cwd and vim.fn.haslocaldir(-1, 0) == 2)
+        or vim.fn.filereadable(dir .. '/CMakePresets.json') == 1
+        or vim.fn.filereadable(dir .. '/CMakeUserPresets.json') == 1
+      then
+        break
+      end
+    end
+    local parent = vim.fs.dirname(dir)
+    if dir == boundary or dir == parent then
+      break
+    end
+    dir = parent
   end
-  vim.cmd 'wall'
+  return root
+end
+
+function M.cmake(command)
+  local root = cmake_root()
+  if not root then
+    return vim.notify('No CMakeLists.txt found', vim.log.levels.WARN)
+  end
+  if vim.fn.getcwd() ~= root then
+    vim.cmd.tcd(vim.fn.fnameescape(root))
+  end
   vim.cmd(command)
 end
 
 function M.format_project()
-  local root = project '.git' or vim.fn.getcwd()
+  local path = project_path()
+  local root = path and vim.fs.root(path, '.git')
+  if not root then
+    return vim.notify('Open a file or directory in a Git project first', vim.log.levels.WARN)
+  end
   if vim.fn.executable 'rg' ~= 1 or vim.fn.executable 'clang-format' ~= 1 then
     return vim.notify('Project formatting requires rg and clang-format', vim.log.levels.ERROR)
   end
-  vim.cmd 'wall'
   local dirs = {}
   for _, name in ipairs { 'src', 'tools' } do
     if vim.fn.isdirectory(root .. '/' .. name) == 1 then
@@ -183,6 +252,11 @@ function M.format_project()
           if not files[index] then
             break
           end
+          local file = vim.fs.joinpath(root, files[index])
+          local buf = vim.fn.bufnr(file)
+          if buf ~= -1 and vim.api.nvim_buf_get_name(buf) == file and vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].modified then
+            vim.api.nvim_buf_call(buf, vim.cmd.update)
+          end
           args[#args + 1] = files[index]
           index = index + 1
         end
@@ -202,7 +276,13 @@ function M.show_commit()
   if not root then
     return vim.notify 'Not inside a Git repository'
   end
-  vim.system({ 'git', 'blame', '--porcelain', '-L', line .. ',' .. line, '--', file }, { cwd = root, text = true }, function(result)
+  -- Blame the line as displayed, including inserted and deleted unsaved lines.
+  local contents = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\n')
+  if vim.bo.endofline then
+    contents = contents .. '\n'
+  end
+  local cmd = { 'git', 'blame', '--contents', '-', '--porcelain', '-L', line .. ',' .. line, '--', file }
+  vim.system(cmd, { cwd = root, text = true, stdin = contents }, function(result)
     vim.schedule(function()
       local commit = result.code == 0 and result.stdout:match '^(%x+)'
       if not commit or commit:match '^0+$' then

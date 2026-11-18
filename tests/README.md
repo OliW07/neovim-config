@@ -1,4 +1,5 @@
-Run `python3 tests/run.py` from the installed config repository. Requires Neovim
+Run `python3 tests/run.py` from any checkout. The runner loads the checkout as its config,
+reuses installed plugins and tools, and isolates its cache and editor state. Requires Neovim
 0.12, the configured plugins, Mason's Lua language server, `make`, `cmake`, and a
 POSIX shell. Tests use temporary projects and local processes.
 

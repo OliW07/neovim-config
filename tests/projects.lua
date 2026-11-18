@@ -2,12 +2,12 @@ vim.opt.rtp:prepend(vim.fn.getcwd())
 local root = vim.fn.tempname()
 vim.fn.mkdir(root .. '/package/src', 'p')
 root = vim.uv.fs_realpath(root)
-vim.fn.mkdir(root .. '/.git', 'p')
 vim.fn.writefile({ '{}' }, root .. '/package.json')
 vim.fn.writefile({ '{}' }, root .. '/biome.json')
 local project = require 'config.projects'
 local standalone = vim.fn.bufadd(root .. '/index.ts')
 assert(project.formatters(standalone)[1] == 'biome', 'standalone Biome config at project root must be included')
+vim.fn.mkdir(root .. '/.git', 'p')
 vim.fn.mkdir(root .. '/src/nested', 'p')
 local source = vim.fn.bufadd(root .. '/src/nested/index.ts')
 assert(project.formatters(source)[1] == 'biome', 'nested source must see standalone root Biome config')
@@ -27,7 +27,10 @@ vim.api.nvim_buf_set_name(review, 'diffview://' .. root .. '/.git/abc/package/sr
 vim.bo[review].filetype = 'typescript'
 vim.b[review].review_lsp_path = root .. '/package/src/index.ts'
 vim.api.nvim_set_current_buf(review)
-local params, config = {}, { root_dir = root }
+local package_dir = project.typescript_root(review, root)
+assert(package_dir == root .. '/package')
+assert(project.typescript_root(source, root) == root, 'a sibling package cannot select this SDK')
+local params, config = {}, { root_dir = package_dir }
 project.ts_before_init(params, config)
 assert(params.initializationOptions.tsserver.path == root .. '/package/node_modules/typescript/lib/tsserver.js')
 local limits = require 'config.buffer'

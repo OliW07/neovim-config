@@ -78,6 +78,7 @@ return {
         group = vim.api.nvim_create_augroup('treesitter-start', { clear = true }),
         callback = function(event)
           if require('config.buffer').large(event.buf) then
+            vim.treesitter.stop(event.buf) -- Bundled ftplugins can start it before this hook.
             return
           end
           local ok = pcall(vim.treesitter.start, event.buf)

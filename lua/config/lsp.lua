@@ -76,19 +76,6 @@ function M.setup()
     virtual_text = {
       source = 'if_many',
       spacing = 2,
-      format = function(diagnostic)
-        local msg = diagnostic.message:gsub('\n', ' ')
-        local win = vim.fn.winwidth(0)
-        local line = vim.fn.virtcol '$' - 1
-        local max = math.min(math.floor(win * 0.7), win - line) - 3
-        if max < 20 then
-          max = 20
-        end
-        if #msg > max then
-          msg = msg:sub(1, max - 1) .. '…'
-        end
-        return msg
-      end,
     },
   }
   local projects = require 'config.projects'
@@ -112,7 +99,12 @@ function M.setup()
   }
   vim.lsp.config('lua_ls', { settings = { Lua = { completion = { callSnippet = 'Replace' } } } })
   vim.lsp.config('yamlls', { settings = { yaml = { format = { enable = false } } } })
-  vim.lsp.config('rust_analyzer', { settings = { ['rust-analyzer'] = { cargo = { allFeatures = true }, check = { command = 'clippy' } } } })
+  local cargo_home = vim.env.CARGO_HOME or vim.fn.expand '~/.cargo'
+  local rust_analyzer = vim.fn.exepath(vim.fs.joinpath(cargo_home, 'bin', 'rust-analyzer'))
+  vim.lsp.config('rust_analyzer', {
+    cmd = { rust_analyzer ~= '' and rust_analyzer or 'rust-analyzer' },
+    settings = { ['rust-analyzer'] = { cargo = { allFeatures = true }, check = { command = 'clippy' } } },
+  })
   vim.lsp.config('ts_ls', { before_init = projects.ts_before_init })
   local clangd = vim.fn.exepath 'clangd-22'
   if clangd == '' then
@@ -149,6 +141,11 @@ function M.setup()
         end
         if name == 'eslint' and projects.biome_config(buf) then
           return
+        end
+        if name == 'ts_ls' then
+          return root_dir(buf, function(workspace)
+            on_dir(projects.typescript_root(buf, workspace))
+          end)
         end
         if type(root_dir) == 'function' then
           return root_dir(buf, on_dir)

@@ -39,16 +39,15 @@ return {
     opts = function()
       local js = require('config.projects').formatters
       return {
-        notify_on_error = false,
         format_on_save = function(bufnr)
           if not require('config.buffer').editable(bufnr) then
             return
           end
-          return { timeout_ms = 500, lsp_format = 'fallback' }
+          return { timeout_ms = 500, lsp_format = 'fallback', quiet = true }
         end,
         formatters_by_ft = {
-          c = { lsp = 'clangd' },
-          cpp = { lsp = 'clangd' },
+          c = { name = 'clangd' },
+          cpp = { name = 'clangd' },
           lua = { 'stylua' },
           python = { 'ruff_format' },
           javascript = js,

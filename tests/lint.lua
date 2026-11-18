@@ -1,7 +1,7 @@
 vim.opt.rtp:prepend(vim.fn.getcwd())
 local calls = {}
 package.loaded.lint = {
-  linters = { cppcheck = { args = {} }, staticcheck = { cmd = 'sh' }, ruff = { cmd = 'sh' } },
+  linters = { cppcheck = { cmd = 'sh', args = {} }, staticcheck = { cmd = 'sh' }, ruff = { cmd = 'sh' } },
   try_lint = function(names, opts)
     calls[#calls + 1] = { buf = vim.api.nvim_get_current_buf(), names = names, cwd = opts.cwd }
   end,
@@ -53,6 +53,17 @@ assert(vim.wait(500, function()
 end))
 assert(calls[2].cwd == root .. '/package' and calls[2].names[1] == 'staticcheck')
 assert(package.loaded.lint.linters.staticcheck.append_fname == false)
+vim.bo[buf].filetype = 'cpp'
+vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'unsaved C++' })
+fire 'InsertLeave'
+vim.wait(250, function()
+  return false
+end)
+assert(#calls == 2, 'disk-based cppcheck must not lint stale text on insert exit')
+fire 'BufWritePost'
+assert(vim.wait(500, function()
+  return #calls == 3
+end))
 vim.fn.delete(root, 'rf')
 print 'PASS debounced lint, unchanged buffers, scratch exclusion, Go package cwd and save-only checks'
 vim.cmd 'qa!'

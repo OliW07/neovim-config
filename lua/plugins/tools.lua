@@ -74,6 +74,7 @@ return {
 
   {
     'Civitasv/cmake-tools.nvim',
+    dependencies = { 'nvim-lua/plenary.nvim' },
     lazy = true,
     cmd = {
       'CMakeGenerate',
@@ -152,6 +153,14 @@ return {
         desc = 'Select launch target',
       },
     },
+    config = function(_, opts)
+      local cmake = require 'cmake-tools'
+      -- The pinned executor and runner call this hook unconditionally before spawning.
+      require('cmake-tools.utils').save_all_named_buffers = function()
+        require('config.tasks').save_project(cmake.get_config().cwd)
+      end
+      cmake.setup(opts)
+    end,
     opts = function()
       return {
         cmake_build_directory = 'build',
