@@ -121,3 +121,9 @@ build tasks and PR review. `work.lua` keeps the local Flutter PATH and Linear ma
 Run `python3 tests/run.py` from this directory. Tests use temporary projects,
 mock GitHub responses, and real local Neovim plugins and language-server processes.
 See [tests/README.md](tests/README.md) for prerequisites and coverage.
+
+## Branch scope
+
+SQL and PR-review workflows belong only to `mac-work`. Start shared editor changes
+from upstream `master`; do not open upstream PRs directly from `mac-work`. When
+syncing upstream, preserve these branch-specific modules and their integration.
