@@ -7,7 +7,9 @@ return {
       'nvim-lua/plenary.nvim',
       {
         'nvim-telescope/telescope-fzf-native.nvim',
-        build = vim.fn.has 'win32' == 1 and 'cmake -S. -Bbuild' or 'make',
+        build = vim.fn.executable 'cmake' == 1
+            and { 'cmake -S . -B build -DCMAKE_BUILD_TYPE=Release', 'cmake --build build --config Release --target install' }
+          or 'make',
         cond = function()
           return vim.fn.executable 'cmake' == 1 or vim.fn.executable 'make' == 1
         end,
@@ -26,14 +28,6 @@ return {
           },
         },
         defaults = {
-          vimgrep_arguments = {
-            'rg',
-            '--no-heading',
-            '--with-filename',
-            '--line-number',
-            '--column',
-            '--smart-case',
-          },
           file_ignore_patterns = { '^node_modules/', '/node_modules/', '^%.git/', '/%.git/', '^dist/', '/dist/', '^build/', '/build/', '^target/', '/target/' },
           mappings = {
             i = {
@@ -56,7 +50,10 @@ return {
           ['ui-select'] = { require('telescope.themes').get_dropdown() },
         },
       }
-      pcall(require('telescope').load_extension, 'fzf')
+      local ok, err = pcall(require('telescope').load_extension, 'fzf')
+      if not ok then
+        vim.notify_once('Telescope native sorter unavailable. Check :Lazy build telescope-fzf-native.nvim. ' .. tostring(err), vim.log.levels.WARN)
+      end
       pcall(require('telescope').load_extension, 'ui-select')
     end,
   },
@@ -131,7 +128,6 @@ return {
       vim.fn['mkdp#util#install']()
     end,
     config = function()
-      vim.g.mkdp_port = '9876'
       vim.g.mkdp_auto_close = 1
     end,
   },

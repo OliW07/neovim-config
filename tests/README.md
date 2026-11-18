@@ -1,7 +1,8 @@
-Run `python3 tests/run.py` from this config repository. Requires Neovim and the
-plugins already installed by this config. The integration test starts Neovim
-with the installed user config, creates a temporary Git remote and checkout,
-and stubs GitHub responses. It never posts reviews or fetches a network remote.
+Run `python3 tests/run.py` from any checkout. The runner loads the checkout as its config,
+reuses installed plugins and tools, and isolates its cache and editor state. Requires Neovim
+0.12, the configured plugins, Mason's Lua language server, `make`, `cmake`, and a
+POSIX shell. Tests use temporary projects and local processes.
+The PR integration uses a temporary Git remote and checkout with stubbed GitHub responses.
 
 Coverage: persistent repository-scoped list and summary caching, expiry, empty
 results, fetched-ref reuse, missing refs, stale advertised SHAs, in-flight sharing, cancellation,

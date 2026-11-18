@@ -26,6 +26,9 @@ function M.setup()
       if ft == 'go' and event.event ~= 'BufWritePost' then
         return
       end
+      if (ft == 'c' or ft == 'cpp') and event.event == 'InsertLeave' then
+        return
+      end
       local names = lint.linters_by_ft[ft]
       if not names or #names == 0 then
         return

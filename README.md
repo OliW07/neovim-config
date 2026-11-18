@@ -6,6 +6,12 @@ init file is not a supported plugin reload mechanism.
 
 ## Setup
 
+Use `sudoedit` to edit privileged files with your usual plugins. Directly running
+this config as root through sudo skips plugin loading.
+
+Search uses `rg`. The native Telescope sorter needs a C compiler and CMake or
+Make. Run `:Lazy build telescope-fzf-native.nvim` after installing the tools.
+
 Open `:Lazy` to install plugins. Use `:MasonToolsInstall` to install the configured
 language servers, formatters, linters and Python/Go debug adapters. Run
 `:TSInstallCommon` once to install the configured Treesitter parsers. Tool/parser updates and
@@ -15,8 +21,8 @@ C/C++ debugging additionally needs an LLVM `lldb-dap` executable. The config loo
 on PATH and in common macOS LLVM locations. Missing LLDB does not prevent Python
 or Go debugging. Install C/C++ linting separately with `brew install cppcheck`.
 Rust needs a rustup toolchain with `rust-analyzer`, `rustfmt`, and `clippy`;
-Mason's server alone cannot analyze Rust without Cargo and rustc. Python uses the active virtual environment, a project's `.venv`
-or `venv`, then Python on PATH. Go debugging starts Delve in the target Go module
+Install these components with rustup so the project's toolchain selects its analyzer. Python uses the
+active virtual environment, a project's `.venv` or `venv`, then Python on PATH. Go debugging starts Delve in the target Go module
 even when Neovim was opened elsewhere. Flutter's Dart is preferred when available.
 
 ## SQL with a local schema
@@ -64,12 +70,16 @@ Leader is **Space**. Which-key shows groups as you type.
 - Diagnostics: `q` current-buffer location list, `Q` diagnostic float, `xq` workspace quickfix list.
   `dd` removes an entry from whichever list is open. `gK` (without Leader) shows LSP hover; `K` moves to the window above.
 - Git: `gs` status, `gl` log, `gc` commit, `gp` pull, `gP` push, `gF` fetch,
-  `gb` blame, `gS` show the line's commit. `hs`/`hr` stage/reset hunks.
+  `gb` blame, `gS` show the current buffer line's commit. In a Fugitive log,
+  `gD` opens the commit under the cursor in Diffview. Enter keeps Fugitive's normal navigation. `hs`/`hr` stage/reset hunks.
 - Make: `mb` build, `mr` build/run, `md` build/debug. Executable choices are remembered
-  per project. Failed commands put their output in quickfix.
+  per project. Use `ms` to change the remembered executable. Failed commands put their output in quickfix.
 - CMake: `cc` or `cg` configure, `cb` build, `cr` run, `cd` debug, `ct` build type,
   `cs` build target, `cl` launch target, `cT` tests. These use cmake-tools exclusively
-  and set the current tab's cwd to the nearest CMake project. F5 remains general DAP.
+  and set the tab cwd to the source root. Nested CMakeLists files share their
+  parent build. A preset or an explicit project directory (`:tcd` or
+  `:CMakeSelectCwd`) can select an independent build. Builds save modified
+  files within that project. F5 remains general DAP.
 - C/C++: `F` formats the Git project's `src/` and `tools/` files asynchronously.
 - Markdown: `mp` preview, `mn` stop preview, `mz` zen mode, `me` pencil mode.
 - `so` sources the current buffer. `-` opens Oil. `gf` opens a WYA issue under the
@@ -109,7 +119,7 @@ every package in a pnpm monorepo. TypeScript uses the package's installed SDK.
 Linters debounce rapid events, skip unchanged buffers and never lint review/scratch
 buffers. Go staticcheck runs at package scope on save; Lua Selene runs only where
 there is a `selene.toml`. Files over 1 MiB or 20,000 lines skip automatic LSP,
-Treesitter, indent guides, linting and format-on-save. Thresholds live in
+Treesitter highlighting, linting and format-on-save. Thresholds live in
 `lua/config/buffer.lua`. Explicit formatting remains available.
 
 ## Layout and tests

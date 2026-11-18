@@ -1,17 +1,18 @@
--- Use user config when running with sudo
-if vim.env.SUDO_USER then
-  local home = vim.fn.expand('~' .. vim.env.SUDO_USER)
-  if home ~= '' and home ~= ('~' .. vim.env.SUDO_USER) then
-    vim.env.XDG_CONFIG_HOME = home .. '/.config'
-    vim.env.XDG_DATA_HOME = home .. '/.local/share'
-    vim.env.XDG_STATE_HOME = home .. '/.local/state'
-    vim.env.XDG_CACHE_HOME = home .. '/.cache'
-  end
+-- sudoedit runs the editor as the invoking user. A directly elevated session
+-- should use only Neovim's bundled runtime, even when sudo preserves XDG paths.
+if vim.env.SUDO_USER and vim.uv.geteuid and vim.uv.geteuid() == 0 then
+  vim.opt.runtimepath = { vim.env.VIMRUNTIME }
+  vim.o.packpath = ''
+  vim.o.loadplugins = false
+  vim.o.shadafile = 'NONE'
+  vim.o.swapfile = false
+  vim.o.writebackup = false
+  return
 end
 
 -- Prefer rustup-managed toolchains (cargo, rustfmt, rust-analyzer, ...) over
 -- distro-packaged binaries so tools respect the project's rust-toolchain.toml.
-local cargo_bin = os.getenv 'HOME' .. '/.cargo/bin'
+local cargo_bin = vim.fs.joinpath(vim.env.CARGO_HOME or vim.fn.expand '~/.cargo', 'bin')
 if vim.fn.isdirectory(cargo_bin) == 1 then
   vim.env.PATH = cargo_bin .. ':' .. vim.env.PATH
 end

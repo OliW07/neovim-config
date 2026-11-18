@@ -17,7 +17,6 @@ return {
         'marksman',
         'clangd',
         'pyright',
-        'rust-analyzer',
         'gopls',
         'tailwindcss-language-server',
         'biome',

@@ -26,6 +26,10 @@ lazy.load { plugins = { 'nvim-lspconfig' } }
 assert(not package.loaded['telescope.builtin'], 'LSP setup must not eagerly load Telescope')
 assert(vim.deep_equal(vim.lsp.config.clangd.capabilities.general.positionEncodings, { 'utf-8', 'utf-16' }), 'preserve upstream Clangd encoding negotiation')
 assert(vim.lsp.is_enabled 'gopls' and vim.lsp.is_enabled 'biome', 'server setup must not depend on VeryLazy')
+local proxy = vim.fn.exepath(vim.fs.joinpath(vim.env.CARGO_HOME or vim.fn.expand '~/.cargo', 'bin', 'rust-analyzer'))
+if proxy ~= '' then
+  assert(vim.lsp.config.rust_analyzer.cmd[1] == proxy, 'Mason must not shadow rustup')
+end
 local original_get = vim.lsp.get_client_by_id
 local original_clients = vim.lsp.get_clients
 local fake = {
@@ -78,5 +82,11 @@ for _, pattern in ipairs(search.file_ignore_patterns) do
   assert(not ('src/digit.ts'):find(pattern), 'ignore patterns must not hide unrelated filenames')
 end
 assert(vim.tbl_contains(search.vimgrep_arguments, '--smart-case'))
+for _, ext in ipairs { 'lua', 'md' } do
+  local path = vim.fn.tempname() .. '.' .. ext
+  vim.fn.writefile({ string.rep('a', require('config.buffer').max_bytes + 1) }, path)
+  vim.cmd.edit(vim.fn.fnameescape(path))
+  assert(not vim.treesitter.highlighter.active[vim.api.nvim_get_current_buf()], 'built-in highlighter remained active on large ' .. ext)
+end
 io.stdout:write 'PASS full config, lazy tools, independent debuggers, key prefixes, unified LSP/formatting, highlight lifecycle\n'
 vim.cmd 'qa!'
