@@ -6,6 +6,11 @@ end, { desc = 'Show diagnostic float' })
 vim.keymap.set('n', '<leader>xq', vim.diagnostic.setqflist, { desc = 'Open workspace diagnostic quickfix list' })
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
 
+-- Open new editing windows to the right. Explicit :horizontal new still works.
+vim.cmd [[cnoreabbrev <expr> new (getcmdtype() == ':' && getcmdline() ==# 'new' && getcmdpos() == 4) ? 'vnew' : 'new']]
+vim.keymap.set('n', '<C-w>n', '<Cmd>vnew<CR>', { desc = 'New vertical window' })
+vim.keymap.set('n', '<C-w><C-n>', '<Cmd>vnew<CR>', { desc = 'New vertical window' })
+
 vim.keymap.set('n', '<C-h>', '<C-w><C-h>', { desc = 'Move focus to left window' })
 vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to right window' })
 vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to lower window' })
