@@ -147,6 +147,19 @@ function M.value_items(ctx)
   return require('config.sql_values').items(ctx, all, offset)
 end
 
+function M.completion_name(name, kind)
+  if name:match '^[%a_][%w_]*$' then
+    return name
+  end
+  local parts = kind == vim.lsp.protocol.CompletionItemKind.Field and vim.split(name, '.', { plain = true }) or { name }
+  for _, part in ipairs(parts) do
+    if not part:match '^[%a_][%w_]*$' then
+      return '`' .. name:gsub('`', '``') .. '`'
+    end
+  end
+  return name
+end
+
 function M:items(ctx)
   if require('config.buffer').large(ctx.bufnr) then
     return {}
@@ -183,7 +196,7 @@ function M:items(ctx)
       if not name:lower():find(partial:lower(), 1, true) then
         return
       end
-      local insert = name:match '^[%a_][%w_]*$' and name or ('`' .. name:gsub('`', '``') .. '`')
+      local insert = M.completion_name(name, kind)
       result[#result + 1] = { label = name, insertText = insert, kind = kind, detail = detail }
     end
     for _, tbl in ipairs(client and client._sql_schema and client._sql_schema.tables or {}) do
@@ -223,7 +236,7 @@ function M:items(ctx)
       return
     end
     seen[name] = true
-    local insert = name:match '^[%a_][%w_]*$' and name or ('`' .. name:gsub('`', '``') .. '`')
+    local insert = M.completion_name(name, kind)
     items[#items + 1] = { label = name, insertText = insert, kind = kind, detail = detail }
   end
   local kinds = vim.lsp.protocol.CompletionItemKind

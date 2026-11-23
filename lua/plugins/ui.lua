@@ -61,7 +61,12 @@ return {
     'folke/which-key.nvim',
     event = 'VimEnter',
     opts = {
-      delay = 300,
+      delay = function(ctx)
+        if ctx.mode == 'n' and ctx.keys == 'g' then
+          return 0
+        end
+        return 300
+      end,
       icons = { mappings = false, breadcrumb = '/', separator = ' ' },
       replace = { key = { { '<Space>', 'Space' } } },
       spec = {

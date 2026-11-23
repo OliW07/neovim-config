@@ -296,9 +296,11 @@ function M.completions(ctx, items)
         if scope then
           keep = item.label:lower():sub(1, #scope + 1) == scope .. '.'
         end
-        local name = item.insertText
+        -- Blink transforms the item again on acceptance. Start from the original name.
+        local name = item._sql_column_name or item.insertText
         if name and not name:match '^[%a_][%w_]*$' then
-          item.insertText = '`' .. name:gsub('`', '``') .. '`'
+          item._sql_column_name = name
+          item.insertText = require('config.sql_words').completion_name(name, item.kind)
         end
       end
     end

@@ -5,7 +5,8 @@ vim.fn.mkdir(root .. '/queries', 'p')
 vim.fn.mkdir(other .. '/.git', 'p')
 root = vim.uv.fs_realpath(root)
 other = vim.uv.fs_realpath(other)
-local ddl = 'CREATE TABLE prod.payments (`customer_id` String, `amount` Int64, `properties.name` Array(String)) ENGINE = MergeTree ORDER BY customer_id;'
+local ddl =
+  'CREATE TABLE prod.payments (`customer_id` String, `amount` Int64, `properties.name` Array(String), `fee total` Int64) ENGINE = MergeTree ORDER BY customer_id;'
 vim.fn.writefile({ ddl }, root .. '/schema.sql')
 vim.fn.writefile({ 'CREATE TABLE other.private_table (secret String) ENGINE = MergeTree ORDER BY secret;' }, other .. '/schema.sql')
 
@@ -64,7 +65,8 @@ local tables = complete(buf, client, 'SELECT * FROM ')
 assert(has(tables, 'prod.payments'), vim.inspect(tables))
 local columns = complete(buf, client, 'SELECT * FROM prod.payments WHERE ')
 assert(has(columns, 'customer_id') and has(columns, 'amount'), vim.inspect(columns))
-assert(has(columns, '`properties.name`'), 'dotted ClickHouse column names must be quoted')
+assert(has(columns, 'properties.name'), 'dotted ClickHouse fields should complete without backticks')
+assert(has(require('config.sql').completions({}, columns), '`fee total`'), 'fields with spaces should stay quoted exactly once on acceptance')
 assert(not client.server_capabilities.documentFormattingProvider, 'do not autoformat SQL with a generic formatter')
 
 -- The upstream server can return every catalog field even for one table.

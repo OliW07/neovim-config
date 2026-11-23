@@ -1,6 +1,9 @@
 local root = vim.fn.tempname()
 vim.fn.mkdir(root .. '/.git', 'p')
-vim.fn.writefile({ 'CREATE TABLE prod.payments (amount Int64) ENGINE = MergeTree ORDER BY amount;' }, root .. '/schema.sql')
+vim.fn.writefile({
+  'CREATE TABLE prod.payments (amount Int64) ENGINE = MergeTree ORDER BY amount;',
+  'CREATE TABLE analytics.events (type String, `string_properties.name` Array(String)) ENGINE = MergeTree ORDER BY type;',
+}, root .. '/schema.sql')
 vim.fn.writefile({ vim.json.encode { tables = { ['prod.payments'] = { status = { 'accountCreated' } } } } }, root .. '/sql-values.json')
 vim.cmd('edit ' .. root .. '/query.sql')
 assert(vim.wait(5000, function()
@@ -10,6 +13,7 @@ end, 20))
 local cmp = require 'blink.cmp'
 local cases = {
   { "SELECT * FROM system.columns WHERE table = 'ymen", 't', 'payments', "SELECT * FROM system.columns WHERE table = 'payments" },
+  { 'SELECT type, string_propertie', 's', 'analytics.events.string_properties.name', 'SELECT type, string_properties.name' },
   { "SELECT * FROM system.tables WHERE name = 'YMEN", 'T', 'payments', "SELECT * FROM system.tables WHERE name = 'payments" },
   { 'SELECT * FROM prod.ymen', 't', 'payments', 'SELECT * FROM prod.payments' },
   { 'SELECT * FROM ymen', 't', 'prod.payments', 'SELECT * FROM prod.payments' },
@@ -58,6 +62,12 @@ local cases = {
   { 'SELECT * FROM prod.payments W', 'H', 'WHERE' },
   { 'SELECT toDecimalStr', 'i', 'toDecimalString' },
   { 'SELECT sum(amount) AS total_paid FROM prod.payments ORDER BY total_p', 'a', 'total_paid' },
+  {
+    'SELECT * FROM analytics.events e WHERE e.string_propertie',
+    's',
+    'string_properties.name',
+    'SELECT * FROM analytics.events e WHERE e.string_properties.name',
+  },
 }
 local function key(s)
   vim.api.nvim_input(vim.api.nvim_replace_termcodes(s, true, false, true))
