@@ -28,6 +28,10 @@ function M.root(buf)
   return vim.fs.root(dir, '.git') or vim.fs.root(dir, 'schema.sql') or dir
 end
 
+local function cloud_cache(client)
+  return vim.fn.stdpath 'cache' .. '/lumin-sql/' .. vim.fn.sha256(client.config.root_dir) .. '.json'
+end
+
 function M.refresh(client)
   local path = client.config.root_dir .. '/schema.sql'
   client._schema_generation = (client._schema_generation or 0) + 1
@@ -46,6 +50,17 @@ function M.refresh(client)
     client:notify('workspace/didChangeConfiguration', {
       settings = { schemas = schema and { schema } or {}, fileSchemas = files },
     })
+  end
+  local cache = cloud_cache(client)
+  if vim.fn.filereadable(cache) == 1 then
+    local ok, schema = pcall(function()
+      return vim.json.decode(table.concat(vim.fn.readfile(cache), '\n'))
+    end)
+    if ok and type(schema) == 'table' and type(schema.tables) == 'table' and schema.id then
+      publish(schema)
+      return
+    end
+    vim.notify('Invalid Cloud catalog. Run :SqlSchemaSync to refresh it.', vim.log.levels.WARN)
   end
   if vim.fn.filereadable(path) == 0 then
     publish(nil)
@@ -125,11 +140,37 @@ function M.setup(capabilities)
       end
     end,
   })
+  vim.api.nvim_create_user_command('SqlSchemaSync', function()
+    local client = vim.lsp.get_clients({ bufnr = 0, name = 'sql_schema' })[1]
+    if not client or M.dialect(0) ~= 'clickhouse' then
+      vim.notify('Open a ClickHouse SQL buffer with the SQL LSP attached', vim.log.levels.WARN)
+      return
+    end
+    if client._cloud_syncing then
+      return
+    end
+    client._cloud_syncing = true
+    vim.system(
+      { 'python3', vim.fn.stdpath 'config' .. '/scripts/sql-cloud-schema.py', cloud_cache(client) },
+      { text = true },
+      vim.schedule_wrap(function(result)
+        client._cloud_syncing = nil
+        if result.code ~= 0 then
+          vim.notify(vim.trim(result.stderr), vim.log.levels.ERROR)
+          return
+        end
+        if not client:is_stopped() then
+          M.refresh(client)
+        end
+        vim.notify(vim.trim(result.stdout))
+      end)
+    )
+  end, { desc = 'Sync Lumin ClickHouse metadata for this repository' })
   vim.api.nvim_create_user_command('SqlSchemaReload', function()
     for _, client in ipairs(vim.lsp.get_clients { bufnr = 0, name = 'sql_schema' }) do
       M.refresh(client)
     end
-  end, { desc = 'Reload the repository-root schema.sql' })
+  end, { desc = 'Reload the repository SQL catalog' })
 end
 
 -- The server prefixes column display labels with its database name. The local
