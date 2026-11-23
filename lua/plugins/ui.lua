@@ -1,3 +1,8 @@
+local frequent = {}
+for _, key in ipairs { 'gg', 'gd', 'gq', 'gj', 'gk', 'gv', 'gf', 'zz', 'za', 'zo', 'zc', '[c', ']c' } do
+  frequent[key] = true
+end
+
 return {
   {
     'nvim-telescope/telescope.nvim',
@@ -69,7 +74,14 @@ return {
       end,
       icons = { mappings = false, breadcrumb = '/', separator = ' ' },
       replace = { key = { { '<Space>', 'Space' } } },
+      triggers = { { '<auto>', mode = 'nxso' }, { '<C-x>', mode = 'i' } },
+      -- Keep live mappings and everyday native commands on the first page.
+      sort = { 'local', 'order', function(item)
+        return (item.keymap or frequent[item.node.keys]) and 0 or 1
+      end, 'group', 'alphanum', 'mod' },
       spec = {
+        require 'config.which_key',
+        { '<leader>?', '<cmd>help index<CR>', desc = 'Full built-in command index' },
         { '<leader>f', group = 'Find' },
         { '<leader>t', group = 'Toggle' },
         { '<leader>h', group = 'Git hunk', mode = { 'n', 'v' } },
