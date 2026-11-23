@@ -1,0 +1,19 @@
+#!/bin/sh
+# Use the editor as the interactive SQL prompt, and the Cloud CLI for files/stdin.
+if [ "$#" -eq 0 ] && [ -t 0 ]; then
+  project=$(git rev-parse --show-toplevel 2>/dev/null) || project=''
+  if [ -z "$project" ] || [ ! -f "$project/schema.sql" ]; then
+    project="$HOME/Documents/work/analysis"
+  fi
+  exec nvim "$project/scratch.sql"
+fi
+if [ "$#" -gt 1 ]; then
+  echo 'Usage: chq [query.sql|-]' >&2
+  exit 2
+fi
+exec clickhousectl cloud service query \
+    --id 76eab0f7-9951-4a2e-b6f9-75fae161f8c6 \
+    --org-id f01a834a-a6eb-4cbf-a4ef-4398e20692a8 \
+    --database prod \
+    --no-auto-enable \
+    --queries-file "${1:--}"

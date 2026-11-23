@@ -54,7 +54,13 @@ ClickHouse completion also includes offline functions, signatures, local aliases
 and CTE columns. Optional `sql-values.json` next to `schema.sql` supplies observed
 string values without network requests. The bundled `data/` vocabulary files,
 `scripts/`, `lua/config/sql*.lua` and `lazy-lock.json` belong in version control.
-The existing SQL query/output workflow remains available under `<leader>k`.
+In a SQL buffer, press `<leader>kq` to run the buffer or its visual selection.
+Dadbod displays the result in a split. The default Lumin adapter submits one
+statement per request to ClickHouse Cloud through the authenticated `clickhousectl`
+CLI. For dbt models, compile the model first and run its generated SQL.
+The shell command `chq query.sql` uses the same adapter script. It also accepts
+piped SQL. Running `chq` interactively opens a scratch file in the current schema-enabled checkout, or in the analysis repo.
+Install the command with `install -m 755 ~/.config/nvim/scripts/chq ~/.local/bin/chq`.
 
 ## Keys
 

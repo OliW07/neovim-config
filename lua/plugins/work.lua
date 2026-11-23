@@ -1,5 +1,6 @@
 -- Work-machine extras (Wyatt / this laptop). Safe to keep local or push upstream.
 return {
+  { 'tpope/vim-dadbod', cmd = 'DB', ft = 'sql' },
   {
     'WhoIsSethDaniel/mason-tool-installer.nvim',
     cmd = { 'MasonToolsInstall', 'MasonToolsUpdate', 'MasonToolsClean' },
