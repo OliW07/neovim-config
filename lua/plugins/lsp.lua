@@ -70,13 +70,22 @@ return {
 
   {
     'saghen/blink.cmp',
-    event = 'InsertEnter',
+    event = { 'InsertEnter', 'CmdlineEnter' },
     version = '1.*',
     dependencies = {
       'folke/lazydev.nvim',
     },
     opts = {
       keymap = { preset = 'default' },
+      cmdline = {
+        completion = {
+          menu = {
+            auto_show = function()
+              return vim.fn.getcmdtype() == ':'
+            end,
+          },
+        },
+      },
       completion = {
         menu = { draw = { columns = { { 'label', 'label_description', gap = 1 }, { 'kind' } } } },
         documentation = { auto_show = false, auto_show_delay_ms = 500 },
