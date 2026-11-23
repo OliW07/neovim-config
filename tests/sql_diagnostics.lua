@@ -18,6 +18,11 @@ check(
   0
 )
 check("SELECT 'unterminated", 1)
+check("SELECT * FROM {{ ref('stg_pinpoint_events') }}", 0)
+local broken = "SELECT * FROM {{ ref('stg_pinpoint_events') }} WHERE (1 + )"
+check(broken, 1)
+local err = vim.diagnostic.get(buf, { namespace = validator.namespace })[1]
+assert(err.col == #broken - 1, 'error after ref must point at the closing parenthesis')
 check('SELECT 1;', 0)
 -- An obsolete parser response must not overwrite diagnostics for a newer edit.
 vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'SELECT (1 + )' })

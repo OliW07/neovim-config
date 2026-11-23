@@ -1,15 +1,25 @@
 """Parse stdin in the selected SQL dialect locally; never execute it or access a DB."""
 import json
+import re
 import sys
 
 import sqlglot
 from sqlglot.errors import ParseError, TokenError
 
 
+# dbt resolves ref() to a relation before ClickHouse parses the SQL. Stand in
+# for that identifier locally, keeping every subsequent line and column intact.
+DBT_REF = re.compile(r"""{{-?\s*ref\s*\((?:[^(){}'"]|'[^']*'|"[^"]*")*\)\s*-?}}""")
+
+
+def mask_ref(match):
+    return "r" + re.sub(r"[^\r\n]", " ", match.group()[1:])
+
+
 def diagnostics(text, dialect="clickhouse"):
     lines = text.splitlines() or [""]
     try:
-        sqlglot.parse(text, read=dialect)
+        sqlglot.parse(DBT_REF.sub(mask_ref, text), read=dialect)
         return []
     except ParseError as error:
         result = []
