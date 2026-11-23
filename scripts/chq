@@ -1,19 +1,75 @@
-#!/bin/sh
-# Use the editor as the interactive SQL prompt, and the Cloud CLI for files/stdin.
-if [ "$#" -eq 0 ] && [ -t 0 ]; then
-  project=$(git rev-parse --show-toplevel 2>/dev/null) || project=''
-  if [ -z "$project" ] || [ ! -f "$project/schema.sql" ]; then
-    project="$HOME/Documents/work/analysis"
-  fi
-  exec nvim "$project/scratch.sql"
-fi
-if [ "$#" -gt 1 ]; then
-  echo 'Usage: chq [query.sql|-]' >&2
-  exit 2
-fi
-exec clickhousectl cloud service query \
-    --id 76eab0f7-9951-4a2e-b6f9-75fae161f8c6 \
-    --org-id f01a834a-a6eb-4cbf-a4ef-4398e20692a8 \
-    --database prod \
-    --no-auto-enable \
-    --queries-file "${1:--}"
+#!/usr/bin/env python3
+"""Run one SQL statement through the Lumin Cloud Query API."""
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+
+def project_for(source):
+    for directory in (source.parent, *source.parent.parents):
+        for project in (directory, directory / "lumin"):
+            if (project / "dbt_project.yml").is_file():
+                return project
+        if (directory / ".git").exists():
+            break
+    return Path.home() / "Documents/work/lumin-dbt/lumin"
+
+
+def compile_sql(sql, source):
+    project = project_for(source)
+    compiler = os.environ.get("LUMIN_CLOUD_DBT") or Path.home() / ".venvs/lumin-dbt-cloud/bin/dbt"
+    selection = ["--inline", sql]
+    if source.is_relative_to(project) and source.is_file():
+        relative = source.relative_to(project)
+        if relative.parts[0] in ("models", "analyses") and source.read_text() == sql:
+            selection = ["--select", f"path:{relative}"]
+
+    result = subprocess.run(
+        [compiler, "compile", "--quiet", "--no-use-colors", "--no-populate-cache",
+         "--no-introspect", "--target-path", "target/chq", "--output", "json", *selection],
+        cwd=project, env={**os.environ, "LUMIN_DBT_SCHEMA": "prod"},
+        capture_output=True, text=True,
+    )
+    if result.returncode:
+        sys.exit(result.stdout.strip() or result.stderr.strip() or "dbt compilation failed")
+    try:
+        return json.loads(result.stdout)["compiled"]
+    except (ValueError, KeyError):
+        sys.exit(f"dbt returned no compiled SQL for {source}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("file", nargs="?")
+    parser.add_argument("--source", type=Path, help="original editor buffer path")
+    args = parser.parse_args()
+    if args.file is None and sys.stdin.isatty():
+        root = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True)
+        project = Path(root.stdout.strip())
+        if root.returncode or not (project / "schema.sql").is_file():
+            project = Path.home() / "Documents/work/analysis"
+        os.execlp("nvim", "nvim", str(project / "scratch.sql"))
+
+    file = Path(args.file) if args.file and args.file != "-" else None
+    sql = file.read_text() if file else sys.stdin.read()
+    if re.search(r"{{.*?}}|{%.*?%}|{#.*?#}", sql, re.S):
+        source = args.source or file or Path.cwd() / "scratch.sql"
+        sql = compile_sql(sql, source.resolve())
+    return subprocess.run(
+        ["clickhousectl", "cloud", "service", "query",
+         "--id", "76eab0f7-9951-4a2e-b6f9-75fae161f8c6",
+         "--org-id", "f01a834a-a6eb-4cbf-a4ef-4398e20692a8",
+         "--database", "prod", "--no-auto-enable", "--queries-file", "-"],
+        input=sql, text=True,
+    ).returncode
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except OSError as error:
+        sys.exit(str(error))

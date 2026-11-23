@@ -64,7 +64,11 @@ projects and refreshed by `:SqlSchemaSync`. A repository-local
 In a SQL buffer, press `<leader>kq` to run the buffer or its visual selection.
 Dadbod displays the result in a split. The default Lumin adapter submits one
 statement per request to ClickHouse Cloud through the authenticated `clickhousectl`
-CLI. For dbt models, compile the model first and run its generated SQL.
+CLI. SQL with dbt template tags is compiled automatically using the Lumin Cloud
+dbt environment (`~/.venvs/lumin-dbt-cloud/bin/dbt` or `LUMIN_CLOUD_DBT`).
+Selections and unsaved text compile as standalone queries. Referenced tables
+must exist in Cloud; macros requiring a database connection during compilation
+need a connected dbt profile.
 The shell command `chq query.sql` uses the same adapter script. It also accepts
 piped SQL. Running `chq` interactively opens a scratch file in the current schema-enabled checkout, or in the analysis repo.
 Install the command with `install -m 755 ~/.config/nvim/scripts/chq ~/.local/bin/chq`.
