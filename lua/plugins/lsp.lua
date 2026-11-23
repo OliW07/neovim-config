@@ -86,15 +86,9 @@ return {
         },
       },
       sources = {
-        default = { 'lsp', 'path', 'lazydev', 'sql_words' },
+        default = { 'lsp', 'path', 'lazydev' },
         providers = {
-          sql_words = { name = 'SQL', module = 'config.sql_words' },
           lazydev = { module = 'lazydev.integrations.blink', score_offset = 100 },
-          lsp = {
-            transform_items = function(ctx, items)
-              return require('config.sql').completions(ctx, items)
-            end,
-          },
         },
       },
       fuzzy = { implementation = 'lua' },

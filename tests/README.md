@@ -36,6 +36,4 @@ executable and check Python and LLDB debugger configuration.
 Safety regressions additionally exercise repository-scoped drafts, submission
 snapshots, duplicate-submit guards, pending-review retry, stale callback rejection,
 explicit comment re-anchoring, failed note writes, paginated comments, Unicode LSP
-positions, revision-isolated real language servers and cleanup. SQL checks cover
-non-SQL completion bypass, mixed-case aliases, empty literal suggestions, shared
-linear tokenization, filename dialects, large-file guards and validator cancellation.
+positions, revision-isolated real language servers and cleanup. SQL checks cover the Blink menu, filename dialects, large-file guards and validator cancellation.

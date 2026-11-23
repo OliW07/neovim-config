@@ -43,11 +43,7 @@ local function complete(buf, client, text)
     'completion timed out'
   )
   assert(not error, vim.inspect(error))
-  local items = result.items or result
-  for _, item in ipairs(items) do
-    item.client_id = client.id
-  end
-  return require('config.sql').completions({}, items)
+  return result.items or result
 end
 
 local function has(items, name)
@@ -66,30 +62,7 @@ assert(has(tables, 'prod.payments'), vim.inspect(tables))
 local columns = complete(buf, client, 'SELECT * FROM prod.payments WHERE ')
 assert(has(columns, 'customer_id') and has(columns, 'amount'), vim.inspect(columns))
 assert(has(columns, 'properties.name'), 'dotted ClickHouse fields should complete without backticks')
-assert(has(require('config.sql').completions({}, columns), '`fee total`'), 'fields with spaces should stay quoted exactly once on acceptance')
 assert(not client.server_capabilities.documentFormattingProvider, 'do not autoformat SQL with a generic formatter')
-
--- The upstream server can return every catalog field even for one table.
--- Only the active statement should determine the single-table filter.
-local scoped = {
-  'SELECT secret FROM other.private_table;',
-  '-- FROM other.private_table; should not affect completion',
-  "SELECT * FROM prod.payments WHERE customer_id = 'FROM other.private_table;' ORDER BY amount",
-}
-vim.api.nvim_buf_set_lines(buf, 0, -1, false, scoped)
-vim.bo[buf].modified = false
-local items = require('config.sql').completions({
-  bufnr = buf,
-  line = scoped[3],
-  cursor = { 3, #scoped[3] },
-}, {
-  { label = '.prod.payments.amount', insertText = 'amount', kind = 5, client_id = client.id },
-  { label = '.other.private_table.secret', insertText = 'secret', kind = 5, client_id = client.id },
-})
-assert(#items == 1 and items[1].insertText == 'amount', 'exclude fields outside active single-table scope')
-local selected = { label = 'payments', _sql_catalog_completion = true }
-local resolved = require('config.sql').completions({ bufnr = buf, line = 'SELECT * FROM prod.', cursor = { 1, 19 } }, { selected })
-assert(resolved[1] == selected, 'resolution must preserve the highlighted completion')
 
 -- The upstream grammar rejects ClickHouse DDL. Suppress only the catalog's
 -- diagnostics, not errors in query files.
@@ -148,5 +121,5 @@ for _, c in ipairs(vim.lsp.get_clients()) do
 end
 vim.fn.delete(root, 'rf')
 vim.fn.delete(other, 'rf')
-io.stdout:write 'PASS SQL LSP startup, table/column completion, quoting, schema refresh and repository isolation\n'
+io.stdout:write 'PASS SQL LSP startup, table/column completion, schema refresh and repository isolation\n'
 vim.cmd 'qa!'

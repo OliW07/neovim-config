@@ -55,10 +55,10 @@ dialect (ClickHouse, PostgreSQL, MySQL or Hive). Redis uses the upstream server.
 The root `schema.sql` is validated separately by the metadata loader. Validation
 cancels obsolete requests and skips large buffers.
 
-ClickHouse completion also includes offline functions, signatures, local aliases
-and CTE columns. Optional `sql-values.json` next to `schema.sql` supplies observed
-string values without network requests. The bundled `data/` vocabulary files,
-`scripts/`, `lua/config/sql*.lua` and `lazy-lock.json` belong in version control.
+Blink uses the SQL server's table and column suggestions directly. To complete
+a qualified table, start typing its name immediately after `FROM` and accept
+the full suggestion. Quote column names containing spaces when using them in SQL.
+
 In a SQL buffer, press `<leader>kq` to run the buffer or its visual selection.
 Dadbod displays the result in a split. The default Lumin adapter submits one
 statement per request to ClickHouse Cloud through the authenticated `clickhousectl`
