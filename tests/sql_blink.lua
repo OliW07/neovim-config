@@ -38,7 +38,7 @@ end
 check('SELECT * FROM paymen', 't', 'SELECT * FROM prod.payments', function()
   check('SELECT * FROM prod.payments WHERE amou', 'n', 'SELECT * FROM prod.payments WHERE amount', function()
     vim.fn.delete(root, 'rf')
-    print 'PASS upstream SQL LSP via Blink: accept a qualified table and a column'
+    print 'PASS SQL LSP via Blink: accept a qualified table and a column'
     vim.cmd 'qa!'
   end)
 end)

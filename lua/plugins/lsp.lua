@@ -11,6 +11,7 @@ return {
   {
     'neovim/nvim-lspconfig',
     commit = '0203a96',
+    ft = 'sql',
     event = { 'BufReadPre', 'BufNewFile' },
     dependencies = {
       { 'mason-org/mason.nvim', opts = {} },

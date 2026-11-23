@@ -32,7 +32,7 @@ local function complete(buf, client, text)
   local done, result, error
   client:request('textDocument/completion', {
     textDocument = { uri = vim.uri_from_bufnr(buf) },
-    position = { line = 0, character = #text },
+    position = { line = 0, character = vim.str_utfindex(text, client.offset_encoding) },
   }, function(err, response)
     error, result, done = err, response, true
   end, buf)
@@ -62,6 +62,12 @@ assert(has(tables, 'prod.payments'), vim.inspect(tables))
 local columns = complete(buf, client, 'SELECT * FROM prod.payments WHERE ')
 assert(has(columns, 'customer_id') and has(columns, 'amount'), vim.inspect(columns))
 assert(has(columns, 'properties.name'), 'dotted ClickHouse fields should complete without backticks')
+assert(has(columns, '`fee total`'), 'quote columns containing spaces')
+assert(has(complete(buf, client, 'SELECT * FROM prod.'), 'payments'))
+assert(has(complete(buf, client, 'SELECT * FROM payments p WHERE p.'), 'amount'))
+assert(has(complete(buf, client, 'WITH q AS (SELECT amount AS cost FROM prod.payments) SELECT * FROM q WHERE '), 'cost'))
+local utf = complete(buf, client, "SELECT '猫' FROM prod.payments p WHERE p.")
+assert(has(utf, 'amount'), 'LSP position follows a multibyte character')
 assert(not client.server_capabilities.documentFormattingProvider, 'do not autoformat SQL with a generic formatter')
 
 -- The upstream grammar rejects ClickHouse DDL. Suppress only the catalog's

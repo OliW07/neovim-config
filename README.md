@@ -33,7 +33,7 @@ Restart Neovim, then open a `.sql` file. The `sql_schema` LSP supplies SQL
 completion through Blink without connecting to a database or executing SQL.
 
 For Lumin, run `:SqlSchemaSync` in a SQL buffer to fetch visible table and
-column metadata through `chq`. The LSP loads the per-repository cache on future
+column metadata and ClickHouse function documentation through `chq`. The LSP loads the per-repository cache on future
 starts, including offline. Run the command again after schema changes.
 The cache takes precedence over `schema.sql`. A failed sync keeps the last successful catalog.
 
@@ -55,9 +55,11 @@ dialect (ClickHouse, PostgreSQL, MySQL or Hive). Redis uses the upstream server.
 The root `schema.sql` is validated separately by the metadata loader. Validation
 cancels obsolete requests and skips large buffers.
 
-Blink uses the SQL server's table and column suggestions directly. To complete
-a qualified table, start typing its name immediately after `FROM` and accept
-the full suggestion. Quote column names containing spaces when using them in SQL.
+Blink uses the LSP source for SQL. A local ClickHouse extension supplies
+qualified names (`prod.`, `p.`), projected CTE columns, and function help
+with the active argument. The function catalog is shared between Lumin
+projects and refreshed by `:SqlSchemaSync`. A repository-local
+`sql-values.json` can supply observed literal values. Completion runs offline.
 
 In a SQL buffer, press `<leader>kq` to run the buffer or its visual selection.
 Dadbod displays the result in a split. The default Lumin adapter submits one

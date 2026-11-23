@@ -84,7 +84,7 @@ end
 
 function M.setup(capabilities)
   vim.lsp.config('sql_schema', {
-    cmd = { data .. '/sql-lsp' },
+    cmd = require('config.sql_completion').start,
     filetypes = { 'sql' },
     capabilities = capabilities,
     root_dir = function(buf, on_dir)
@@ -108,10 +108,13 @@ function M.setup(capabilities)
       local completion = client.server_capabilities.completionProvider
       if completion then
         completion.triggerCharacters = completion.triggerCharacters or {}
-        if not vim.tbl_contains(completion.triggerCharacters, ' ') then
-          table.insert(completion.triggerCharacters, ' ')
+        for _, ch in ipairs { ' ', '.', "'" } do
+          if not vim.tbl_contains(completion.triggerCharacters, ch) then
+            table.insert(completion.triggerCharacters, ch)
+          end
         end
       end
+      client.server_capabilities.signatureHelpProvider = { triggerCharacters = { '(', ',' }, retriggerCharacters = { ')' } }
       -- A metadata completion server must not format files on save.
       client.server_capabilities.documentFormattingProvider = false
       -- v0.1.3 advertises pull diagnostics but only implements push diagnostics.
@@ -151,7 +154,7 @@ function M.setup(capabilities)
     end
     client._cloud_syncing = true
     vim.system(
-      { 'python3', vim.fn.stdpath 'config' .. '/scripts/sql-cloud-schema.py', cloud_cache(client) },
+      { 'python3', vim.fn.stdpath 'config' .. '/scripts/sql-cloud-schema.py', cloud_cache(client), data .. '/functions.json' },
       { text = true },
       vim.schedule_wrap(function(result)
         client._cloud_syncing = nil

@@ -16,7 +16,7 @@ lint servers, duplicate attachment, deferred visible-buffer attachment, and `gd`
 against the real Mason-installed Lua language server. Install that server before
 running the suite. No fixture language server accesses GitHub.
 
-SQL integration requires `python3 scripts/install-sql-lsp.py` first. It checks the
+SQL integration uses the installed SQL LSP and function catalog. Run `python3 scripts/install-sql-lsp.py` and use `:SqlSchemaSync` once in a Lumin SQL buffer before running the offline suite. It checks the
 real offline SQL server for table/column completion, quoted ClickHouse fields,
 schema reload after save, and isolation between repositories. It does not query
 ClickHouse or execute the schema's SQL.
