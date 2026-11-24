@@ -12,6 +12,7 @@ vim.api.nvim_buf_set_lines(source, 0, -1, false, {
   'from pathlib import Path',
   'Path("result").write_text(input() + "\\n" + sys.prefix)',
 })
+require 'telescope'
 local choice
 vim.ui.select = function(items, _, select)
   assert(vim.deep_equal(items, { 'Run', 'Debug' }))

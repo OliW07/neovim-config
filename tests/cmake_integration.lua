@@ -16,6 +16,7 @@ vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'unsaved' })
 vim.cmd.edit(vim.fn.fnameescape(file))
 vim.api.nvim_buf_set_lines(0, 1, -1, false, { 'int main(void) { return fclose(fopen("ran", "w")); }' })
 require('lazy').load { plugins = { 'cmake-tools.nvim' } }
+require 'telescope'
 local choice = 'Run'
 vim.ui.select = function(items, opts, select)
   if opts.prompt:match '^Action for ' then
