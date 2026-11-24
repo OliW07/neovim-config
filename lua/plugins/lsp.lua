@@ -91,7 +91,10 @@ return {
       },
       sources = {
         default = { 'lsp', 'path', 'lazydev' },
-        providers = { lazydev = { module = 'lazydev.integrations.blink', score_offset = 100 } },
+        providers = {
+          path = { module = 'config.path_completion', score_offset = -10 },
+          lazydev = { module = 'lazydev.integrations.blink', score_offset = 100 },
+        },
       },
       fuzzy = { implementation = 'lua' },
       signature = { enabled = true },
