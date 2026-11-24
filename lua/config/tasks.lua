@@ -123,6 +123,8 @@ function M.file_action()
     return vim.notify('Open a Python, C, C++ or CMake file first', vim.log.levels.INFO)
   end
   local actions = python and { 'Run', 'Debug' } or { 'Build', 'Run', 'Debug' }
+  -- Load the configured dropdown before the first selection in a fresh session.
+  require 'telescope'
   vim.ui.select(actions, { prompt = 'Action for ' .. vim.fs.basename(file) }, function(action)
     if not action or not vim.api.nvim_win_is_valid(win) or vim.api.nvim_win_get_buf(win) ~= buf then
       return

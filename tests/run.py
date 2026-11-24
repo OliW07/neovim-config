@@ -22,7 +22,7 @@ with tempfile.TemporaryDirectory(prefix='nvim-config-test-') as folder:
                       XDG_CACHE_HOME=str(profile / 'cache'), XDG_STATE_HOME=str(profile / 'state'))
     for test in ['sql_diagnostics.lua', 'sql_safety.lua', 'projects.lua', 'lint.lua', 'editor_tasks.lua', 'review_data.lua', 'review_safety.lua', 'review_lsp.lua', 'review_lsp_navigation.lua']:
         print(run(['nvim', '--headless', '-u', 'NONE', '-i', 'NONE', '-l', 'tests/' + test]).strip())
-    for test in ['config_smoke.lua', 'path_blink.lua', 'lsp_integration.lua', 'cmake_integration.lua', 'python_integration.lua', 'git_history.lua', 'sql_integration.lua', 'sql_blink.lua', 'sql_words.lua', 'sql_values.lua', 'sql_scope.lua', 'sql_words_blink.lua', 'sql_cte_blink.lua', 'sql_signature_blink.lua']:
+    for test in ['config_smoke.lua', 'run_menu.lua', 'path_blink.lua', 'lsp_integration.lua', 'cmake_integration.lua', 'python_integration.lua', 'git_history.lua', 'sql_integration.lua', 'sql_blink.lua', 'sql_words.lua', 'sql_values.lua', 'sql_scope.lua', 'sql_words_blink.lua', 'sql_cte_blink.lua', 'sql_signature_blink.lua']:
         command = f'lua local ok,err=pcall(dofile,"tests/{test}"); if not ok then print(err); vim.cmd("cquit 1") end'
         print(run(['nvim', '--headless', '-i', 'NONE', '-c', command]).strip())
     with tempfile.TemporaryDirectory(prefix='nvim-review-test-') as folder:
