@@ -98,6 +98,7 @@ return {
       sources = {
         default = { 'lsp', 'path', 'lazydev' },
         providers = {
+          path = { module = 'config.path_completion', score_offset = -10 },
           lazydev = { module = 'lazydev.integrations.blink', score_offset = 100 },
         },
       },
