@@ -1,6 +1,7 @@
 -- Slow commands run outside the UI thread. Captured cwd/argv keep paths safe.
 local M = {}
 local busy = {}
+local run_terminals = {}
 
 function M.jobs()
   return vim.uv.available_parallelism and vim.uv.available_parallelism() or math.max(1, #(vim.uv.cpu_info() or {}))
@@ -115,6 +116,28 @@ function M.cmake(command)
   end
 end
 
+local function open_run_terminal()
+  local tab = vim.api.nvim_get_current_tabpage()
+  for old_buf, run in pairs(run_terminals) do
+    if not vim.api.nvim_buf_is_valid(old_buf) then
+      run_terminals[old_buf] = nil
+    elseif run.exited and run.tab == tab then
+      for _, win in ipairs(vim.fn.win_findbuf(old_buf)) do
+        if vim.api.nvim_win_get_tabpage(win) == tab then
+          vim.api.nvim_set_current_win(win)
+          vim.api.nvim_win_set_buf(win, vim.api.nvim_create_buf(false, true))
+          if #vim.fn.win_findbuf(old_buf) == 0 then
+            vim.api.nvim_buf_delete(old_buf, { force = true })
+          end
+          run_terminals[old_buf] = nil
+          return
+        end
+      end
+    end
+  end
+  vim.cmd 'botright 12new'
+end
+
 function M.file_action()
   local win, buf = vim.api.nvim_get_current_win(), vim.api.nvim_get_current_buf()
   local file, ft = vim.api.nvim_buf_get_name(buf), vim.bo[buf].filetype
@@ -138,10 +161,19 @@ function M.file_action()
     if action == 'Debug' then
       require('dap').run(launch)
     else
-      vim.cmd 'botright 12new'
+      open_run_terminal()
+      local terminal = vim.api.nvim_get_current_buf()
+      local run = { tab = vim.api.nvim_get_current_tabpage(), exited = false }
+      run_terminals[terminal] = run
+      vim.api.nvim_create_autocmd('TermClose', {
+        buffer = terminal,
+        once = true,
+        callback = function() run.exited = true end,
+      })
       if vim.fn.jobstart({ launch.pythonPath, file }, { term = true, cwd = launch.cwd }) > 0 then
         vim.cmd.startinsert()
       else
+        run_terminals[terminal] = nil
         vim.cmd.bwipeout()
         vim.notify('Could not start ' .. launch.pythonPath, vim.log.levels.ERROR)
       end

@@ -24,6 +24,9 @@ assert(vim.bo.modified and vim.fn.filereadable(file) == 0, 'cancel must leave ed
 choice = 'Run'
 action_menu()
 assert(vim.bo.buftype == 'terminal', 'Python opens an interactive terminal')
+local first_terminal, first_window = vim.api.nvim_get_current_buf(), vim.api.nvim_get_current_win()
+local first_exited = false
+vim.api.nvim_create_autocmd('TermClose', { buffer = first_terminal, once = true, callback = function() first_exited = true end })
 vim.fn.chansend(vim.b.terminal_job_id, 'hello\n')
 assert(
   vim.wait(5000, function()
@@ -33,6 +36,20 @@ assert(
 )
 assert(vim.deep_equal(vim.fn.readfile(root .. '/result'), { 'hello', root .. '/.venv' }), 'project cwd and interpreter')
 assert(not package.loaded.dap, 'a normal Python run should not load the debugger')
+assert(vim.wait(5000, function() return first_exited end), 'first run should exit')
+vim.cmd.wincmd 'p'
+assert(vim.api.nvim_get_current_buf() == source)
+local windows = #vim.api.nvim_tabpage_list_wins(0)
+action_menu()
+assert(vim.api.nvim_get_current_win() == first_window, 'reuse the exited run window')
+assert(#vim.api.nvim_tabpage_list_wins(0) == windows, 'rerunning must not create a split')
+assert(not vim.api.nvim_buf_is_valid(first_terminal), 'remove the old exited terminal')
+local second_job = vim.b.terminal_job_id
+local second_exited = false
+vim.api.nvim_create_autocmd('TermClose', { buffer = 0, once = true, callback = function() second_exited = true end })
+vim.fn.chansend(second_job, 'again\n')
+assert(vim.wait(5000, function() return second_exited end), 'second run should exit')
+assert(vim.deep_equal(vim.fn.readfile(root .. '/result'), { 'again', root .. '/.venv' }))
 vim.cmd.wincmd 'p'
 assert(vim.api.nvim_get_current_buf() == source)
 local dap, launch = require 'dap', nil
