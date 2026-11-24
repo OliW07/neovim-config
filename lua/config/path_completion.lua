@@ -22,6 +22,9 @@ function M.new(opts)
       for _, item in ipairs(result and result.items or {}) do
         local range = item.textEdit and item.textEdit.range
         if range then
+          -- Blink shares ranges between candidates, so copy before adjusting.
+          range = vim.deepcopy(range)
+          item.textEdit.range = range
           range.start.character = range.start.character - 2
           range['end'].character = range['end'].character - 2
         end
