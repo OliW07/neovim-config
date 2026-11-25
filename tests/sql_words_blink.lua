@@ -45,6 +45,12 @@ local cases = {
     'WITH signups AS (SELECT amount FROM prod.payments) SELECT * FROM signups',
   },
   {
+    'WITH 30_day_curve AS (SELECT amount FROM prod.payments) SELECT * FROM 30_day_curv',
+    'e',
+    '30_day_curve',
+    'WITH 30_day_curve AS (SELECT amount FROM prod.payments) SELECT * FROM 30_day_curve',
+  },
+  {
     'WITH signups AS (SELECT amount AS signed_up_at FROM prod.payments) SELECT * FROM signups s WHERE s',
     '.',
     'signed_up_at',

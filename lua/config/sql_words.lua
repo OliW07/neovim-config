@@ -111,7 +111,12 @@ function M.context(ctx)
 end
 
 function M.completion_name(name, kind)
-  if name:match '^[%a_][%w_]*$' then
+  -- ClickHouse also accepts digit-leading identifiers that are not numbers.
+  local compact = name:gsub('_', '')
+  local digit_identifier = name:match '^%d[%w_]*$'
+    and not tonumber(compact)
+    and not compact:match '^0[bB][01]+$'
+  if name:match '^[%a_][%w_]*$' or digit_identifier then
     return name
   end
   local parts = kind == vim.lsp.protocol.CompletionItemKind.Field and vim.split(name, '.', { plain = true }) or { name }
@@ -129,7 +134,7 @@ function M:items(ctx)
   end
   local all, offset, first, last = M.context(ctx)
   local before = ctx.line:sub(1, ctx.cursor[2])
-  local prefix = before:match '[%a_][%w_]*$'
+  local prefix = before:match '[%w_]+$'
   local values = require('config.sql_values').items(ctx, all, offset)
   if values then
     return values, 'literal'
