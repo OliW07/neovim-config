@@ -34,7 +34,11 @@ Leader is **Space**. Which-key shows groups as you type.
   `fr` resume, `fc` themes.
 - Buffers/debug: `bd` close buffer, `bb` toggle breakpoint, `bB` conditional breakpoint;
   F5 continues/starts debugging, F1/F2/F3 step, F7 toggles the debugger UI.
+<<<<<<< HEAD
 - Editing: `w` save, `cf` format buffer, `y` yank to clipboard, `Y` copy file path,
+=======
+- Editing: `w` save, `y` yank to clipboard, `Y` copy file path,
+>>>>>>> 455f1b7 (feat: remove formmat bind)
   `p` paste from clipboard, `d`/`D` delete without yanking, `xc` change without yanking.
 - Diagnostics: `q` current-buffer location list, `Q` diagnostic float, `xq` workspace quickfix list.
   `dd` removes an entry from whichever list is open. `gK` (without Leader) shows LSP hover; `K` moves to the window above.
